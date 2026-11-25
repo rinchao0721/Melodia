@@ -20,6 +20,10 @@ import com.lin0721.linmusic.core.auth.UserPreferences
 import com.lin0721.linmusic.core.kugou.KugouClientMode
 import com.lin0721.linmusic.core.kugou.KugouConfig
 import com.lin0721.linmusic.core.platform.AccountId
+import com.lin0721.linmusic.core.ui.font.FontRepository
+import com.lin0721.linmusic.core.ui.font.FontRole
+import com.lin0721.linmusic.core.ui.font.FontSettings
+import com.lin0721.linmusic.core.ui.font.FontStore
 import com.lin0721.linmusic.core.ui.skin.SkinRepository
 import com.lin0721.linmusic.feature.settings.data.UserBindingItem
 import com.lin0721.linmusic.feature.settings.data.UserLevelData
@@ -68,6 +72,8 @@ class SettingsViewModel(
     private val accountSwitcher: AccountSwitcher,
     private val resourceProvider: ResourceProvider,
     val skins: SkinRepository,
+    val fonts: FontRepository,
+    val fontStore: FontStore,
     private val ffmpegComponentManager: FfmpegComponentManager,
     private val lanLinkClient: LanLinkAndroidClient,
     private val syncProfileAfterLoginUseCase: SyncProfileAfterLoginUseCase,
@@ -88,6 +94,8 @@ class SettingsViewModel(
 
     // ─── 本地偏好设置对外状态流 ───
     val searchAggregationEnabled = sourcePreferences.searchAggregationEnabled.asState(false)
+    val fontSettings = settingsPreferences.fontSettings.asState(FontSettings())
+    fun setRoleFont(role: FontRole, fontId: String) = launchSave { settingsPreferences.setRoleFont(role, fontId) }
     val searchDefaultKeywordEnabled = settingsPreferences.searchDefaultKeywordEnabled.asState(true)
     val hotSearchEnabled = settingsPreferences.hotSearchEnabled.asState(true)
     val playlistTagsEnabled = settingsPreferences.playlistTagsEnabled.asState(true)

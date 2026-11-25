@@ -1,5 +1,7 @@
 package com.lin0721.linmusic.feature.player.ui
 
+import com.lin0721.linmusic.core.ui.font.LocalMelodiaFonts
+
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -257,6 +259,7 @@ fun LyricsPreview(
                     lineHeight = (mainFontSize.value * 1.35f).sp,
                     color      = if (isCurrent) MelodiaColors.TextPrimary else inactiveColor,
                     fontWeight = FontWeight.ExtraBold,
+                    fontFamily = LocalMelodiaFonts.current.lyrics,
                     textAlign  = TextAlign.Start,
                     onTextLayout = { if (isCurrent) onCurrentLineLayout(it.lineCount) },
                     modifier   = Modifier.fillMaxWidth()
@@ -269,6 +272,7 @@ fun LyricsPreview(
                         fontSize  = transFontSize,
                         lineHeight = (transFontSize.value * 1.35f).sp,
                         color     = (if (isCurrent) MelodiaColors.TextPrimary else inactiveColor).copy(alpha = animatedTransAlpha),
+                        fontFamily = LocalMelodiaFonts.current.lyrics,
                         textAlign = TextAlign.Start,
                         modifier  = Modifier.fillMaxWidth()
                     )

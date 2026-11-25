@@ -25,6 +25,7 @@ import androidx.compose.ui.platform.LocalUriHandler
 import com.lin0721.linmusic.core.preferences.ThemeMode
 import com.lin0721.linmusic.core.preferences.ThemeSettings
 import com.lin0721.linmusic.core.ui.skin.SkinImageCodec
+import com.lin0721.linmusic.core.ui.font.FontRepository
 import com.lin0721.linmusic.core.ui.skin.SkinRepository
 import com.lin0721.linmusic.core.ui.skin.ActiveSkin
 import com.lin0721.linmusic.core.ui.skin.withBackdrop
@@ -84,6 +85,7 @@ class MainActivity : ComponentActivity() {
 
     private val settingsPreferences: SettingsPreferences by inject()
     private val skinRepository: SkinRepository by inject()
+    private val fontRepository: FontRepository by inject()
     private val pluginRepository: PluginRepository by inject()
     private val playerCardSource: PlayerCardSource by inject()
     private val pluginPageHost: PluginPageHost by inject()
@@ -178,8 +180,14 @@ class MainActivity : ComponentActivity() {
             LaunchedEffect(uiAnimationsEnabled) { uiMotion.enabled = uiAnimationsEnabled }
             val currentAccountPlatform by userPreferences.currentPlatform.collectAsState(initial = MusicPlatform.NETEASE)
             val pluginLayouts by pluginRepository.layouts.collectAsState()
+            val resolvedFonts by fontRepository.resolvedFonts.collectAsState()
             val pluginCards = remember { PluginCardContext(playerCardSource, pluginPageHost, AndroidPluginPageUi) }
             LaunchedEffect(Unit) { pluginCommands.notices.messages.collect(ToastManager::showToast) }
+            LaunchedEffect(Unit) {
+                fontRepository.fallbackEvents.collect { event ->
+                    ToastManager.showToast("${event.role.label}字体「${event.fontName ?: event.fontId}」${event.reason}，已回退")
+                }
+            }
             val uriHandler = LocalUriHandler.current
             LaunchedEffect(Unit) {
                 pluginCommands.links.opens.collect { url ->
@@ -194,7 +202,7 @@ class MainActivity : ComponentActivity() {
                 LocalPluginCards provides pluginCards,
                 LocalPluginCommands provides pluginCommands
             ) {
-                MelodiaTheme(themeSettings, activeSkin.skin, activeSkin.backdrop) {
+                MelodiaTheme(themeSettings, activeSkin.skin, activeSkin.backdrop, resolvedFonts) {
                     val palette = LocalMelodiaPalette.current
                     // 系统栏图标与窗口底色随主题深浅切换
                     LaunchedEffect(palette.isDark, palette.pane) {

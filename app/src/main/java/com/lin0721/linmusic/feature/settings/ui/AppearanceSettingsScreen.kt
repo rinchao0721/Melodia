@@ -92,6 +92,14 @@ fun AppearanceSettingsView(viewModel: SettingsViewModel) {
                     HorizontalDivider(color = MelodiaColors.Divider)
                     SkinSettingSection(settings = themeSettings, repository = viewModel.skins)
                     HorizontalDivider(color = MelodiaColors.Divider)
+                    val fontSettings by viewModel.fontSettings.collectAsState()
+                    FontSettingSection(
+                        settings = fontSettings,
+                        repository = viewModel.fonts,
+                        store = viewModel.fontStore,
+                        onSelectRoleFont = viewModel::setRoleFont
+                    )
+                    HorizontalDivider(color = MelodiaColors.Divider)
                     // 松手后才应用（会重建界面）；拖动中不应用，避免滑块在手指下移位
                     var pendingPercent by remember { mutableStateOf<Int?>(null) }
                     LaunchedEffect(uiScalePercent) { pendingPercent = null }

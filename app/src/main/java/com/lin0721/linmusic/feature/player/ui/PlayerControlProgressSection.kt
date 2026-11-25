@@ -1,5 +1,7 @@
 package com.lin0721.linmusic.feature.player.ui
 
+import com.lin0721.linmusic.core.ui.theme.melodiaNumberStyle
+
 import androidx.compose.ui.unit.Dp
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
@@ -184,8 +186,8 @@ fun ProgressSection(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 val displayPosition = if (isSeeking) (seekPosition * duration).toLong() else currentPosition
-                Text(formatTime(displayPosition), color = MelodiaColors.TextSecondary, fontSize = 13.sp)
-                Text(formatTime(duration), color = MelodiaColors.TextSecondary, fontSize = 13.sp)
+                Text(formatTime(displayPosition), color = MelodiaColors.TextSecondary, fontSize = 13.sp, style = melodiaNumberStyle())
+                Text(formatTime(duration), color = MelodiaColors.TextSecondary, fontSize = 13.sp, style = melodiaNumberStyle())
             }
         }
     }

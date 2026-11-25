@@ -1,5 +1,7 @@
 package com.lin0721.linmusic.feature.player.ui
 
+import com.lin0721.linmusic.core.ui.font.LocalMelodiaFonts
+
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.layout.Box
@@ -237,6 +239,7 @@ fun FullScreenLyricsRow(
                     lineHeight = mainLineHeight,
                     color = if (isCurrent) sungColor ?: MelodiaColors.TextPrimary else highlightColor,
                     fontWeight = FontWeight.ExtraBold,
+                    fontFamily = LocalMelodiaFonts.current.lyrics,
                     textAlign = textAlign,
                     onTextLayout = { textBounds?.mainLayout = it },
                     modifier = Modifier
@@ -252,6 +255,7 @@ fun FullScreenLyricsRow(
                     text = secondary,
                     fontSize = translationFontSize,
                     lineHeight = translationLineHeight,
+                    fontFamily = LocalMelodiaFonts.current.lyrics,
                     color = secondaryColor ?: if (isCurrent) MelodiaColors.TextPrimary else highlightColor,
                     textAlign = textAlign,
                     onTextLayout = { textBounds?.secondaryLayout = it },
@@ -301,6 +305,7 @@ fun FullScreenLyricsRow(
                             lineHeight = backgroundLineHeight,
                             color = backgroundColor,
                             fontWeight = FontWeight.Bold,
+                            fontFamily = LocalMelodiaFonts.current.lyrics,
                             textAlign = backgroundTextAlign,
                             modifier = Modifier.fillMaxWidth()
                         )
@@ -310,6 +315,7 @@ fun FullScreenLyricsRow(
                         Text(
                             text = it,
                             fontSize = (fontSize - if (showRoma) 9 else 8).coerceAtLeast(11).sp,
+                            fontFamily = LocalMelodiaFonts.current.lyrics,
                             color = secondaryColor ?: backgroundColor,
                             textAlign = backgroundTextAlign,
                             modifier = Modifier.fillMaxWidth()

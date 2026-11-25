@@ -1,5 +1,7 @@
 package com.lin0721.linmusic.feature.player.ui
 
+import com.lin0721.linmusic.core.ui.font.LocalMelodiaFonts
+
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -98,6 +100,7 @@ fun MiniLyricLine(
                     },
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,
+                    fontFamily = LocalMelodiaFonts.current.lyrics,
                     maxLines = 1,
                     overflow = if (marquee) TextOverflow.Clip else TextOverflow.Ellipsis,
                     modifier = if (marquee) Modifier.basicMarquee() else Modifier

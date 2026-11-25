@@ -10,6 +10,7 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.LocalRippleConfiguration
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
@@ -26,6 +27,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 import com.lin0721.linmusic.core.preferences.ThemeSettings
+import com.lin0721.linmusic.core.ui.font.LocalMelodiaFonts
+import com.lin0721.linmusic.core.ui.font.ResolvedFonts
 import com.lin0721.linmusic.core.ui.interaction.MelodiaPressIndication
 import com.lin0721.linmusic.core.ui.skin.CoverGroup
 import com.lin0721.linmusic.core.ui.skin.LocalCoverPolicy
@@ -46,6 +49,7 @@ fun MelodiaTheme(
     themeSettings: ThemeSettings = ThemeSettings(),
     skin: Skin? = null,
     backdropImage: ImageBitmap? = null,
+    resolvedFonts: ResolvedFonts = ResolvedFonts(),
     content: @Composable () -> Unit
 ) {
     val basePalette = rememberMelodiaPalette(themeSettings, skin)
@@ -55,7 +59,7 @@ fun MelodiaTheme(
     }
     val colorScheme = remember(palette) { melodiaColorScheme(palette) }
     val style = skin?.style ?: MelodiaStyle.Default
-    val typography = remember(style.font) { Typography.withFont(style.font) }
+    val typography = remember(resolvedFonts) { Typography.withFont(resolvedFonts) }
     MaterialTheme(
         colorScheme = colorScheme,
         typography = typography,
@@ -64,6 +68,7 @@ fun MelodiaTheme(
         CompositionLocalProvider(
             LocalMelodiaPalette provides palette,
             LocalMelodiaStyle provides style,
+            LocalMelodiaFonts provides resolvedFonts,
             LocalSkinBackdrop provides backdropHost?.takeIf { palette.backdrop != null },
             LocalCoverPolicy provides skin.coverPolicy(palette.isDark, backdropReady = backdropHost != null && palette.backdrop != null),
             LocalImmersiveBasePalette provides remember(skin) { immersiveBasePalette(skin) },
@@ -213,23 +218,34 @@ fun rememberMelodiaPalette(themeSettings: ThemeSettings, skin: Skin?): MelodiaPa
     }
 }
 
-private fun Typography.withFont(font: ThemeFont): Typography {
-    val family = font.fontFamily ?: return this
+private fun Typography.withFont(fonts: ResolvedFonts): Typography {
+    val global = fonts.global
+    val title = fonts.title ?: global
+    if (global == null && title == null) return this
     return Typography(
-        displayLarge = displayLarge.copy(fontFamily = family),
-        displayMedium = displayMedium.copy(fontFamily = family),
-        displaySmall = displaySmall.copy(fontFamily = family),
-        headlineLarge = headlineLarge.copy(fontFamily = family),
-        headlineMedium = headlineMedium.copy(fontFamily = family),
-        headlineSmall = headlineSmall.copy(fontFamily = family),
-        titleLarge = titleLarge.copy(fontFamily = family),
-        titleMedium = titleMedium.copy(fontFamily = family),
-        titleSmall = titleSmall.copy(fontFamily = family),
-        bodyLarge = bodyLarge.copy(fontFamily = family),
-        bodyMedium = bodyMedium.copy(fontFamily = family),
-        bodySmall = bodySmall.copy(fontFamily = family),
-        labelLarge = labelLarge.copy(fontFamily = family),
-        labelMedium = labelMedium.copy(fontFamily = family),
-        labelSmall = labelSmall.copy(fontFamily = family)
+        displayLarge = title?.let { displayLarge.copy(fontFamily = it) } ?: displayLarge,
+        displayMedium = title?.let { displayMedium.copy(fontFamily = it) } ?: displayMedium,
+        displaySmall = title?.let { displaySmall.copy(fontFamily = it) } ?: displaySmall,
+        headlineLarge = title?.let { headlineLarge.copy(fontFamily = it) } ?: headlineLarge,
+        headlineMedium = title?.let { headlineMedium.copy(fontFamily = it) } ?: headlineMedium,
+        headlineSmall = title?.let { headlineSmall.copy(fontFamily = it) } ?: headlineSmall,
+        titleLarge = title?.let { titleLarge.copy(fontFamily = it) } ?: titleLarge,
+        titleMedium = title?.let { titleMedium.copy(fontFamily = it) } ?: titleMedium,
+        titleSmall = title?.let { titleSmall.copy(fontFamily = it) } ?: titleSmall,
+        bodyLarge = global?.let { bodyLarge.copy(fontFamily = it) } ?: bodyLarge,
+        bodyMedium = global?.let { bodyMedium.copy(fontFamily = it) } ?: bodyMedium,
+        bodySmall = global?.let { bodySmall.copy(fontFamily = it) } ?: bodySmall,
+        labelLarge = global?.let { labelLarge.copy(fontFamily = it) } ?: labelLarge,
+        labelMedium = global?.let { labelMedium.copy(fontFamily = it) } ?: labelMedium,
+        labelSmall = global?.let { labelSmall.copy(fontFamily = it) } ?: labelSmall
+    )
+}
+
+@Composable
+fun melodiaNumberStyle(base: androidx.compose.ui.text.TextStyle = LocalTextStyle.current): androidx.compose.ui.text.TextStyle {
+    val numbersFamily = LocalMelodiaFonts.current.numbers
+    return base.copy(
+        fontFamily = numbersFamily ?: base.fontFamily,
+        fontFeatureSettings = "tnum"
     )
 }

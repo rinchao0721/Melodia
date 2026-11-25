@@ -1,5 +1,7 @@
 package com.lin0721.linmusic.core.ui.components
 
+import com.lin0721.linmusic.core.ui.theme.melodiaNumberStyle
+
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.expandHorizontally
@@ -294,6 +296,7 @@ fun SongRow(
                 text = data.durationText,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 12.sp,
+                style = melodiaNumberStyle(),
                 modifier = Modifier.padding(start = MelodiaSpacing.sm)
             )
         }

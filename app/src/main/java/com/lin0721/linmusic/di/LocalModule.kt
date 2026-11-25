@@ -10,6 +10,8 @@ import com.lin0721.linmusic.core.network.OnlineStateProvider
 import com.lin0721.linmusic.core.network.AndroidResourceProvider
 import com.lin0721.linmusic.core.network.NetworkStateProvider
 import com.lin0721.linmusic.core.ui.skin.SkinImageCodec
+import com.lin0721.linmusic.core.ui.font.FontRepository
+import com.lin0721.linmusic.core.ui.font.FontStore
 import com.lin0721.linmusic.core.ui.skin.SkinRepository
 import com.lin0721.linmusic.core.ui.skin.SkinStore
 import com.lin0721.linmusic.core.ui.theme.AndroidSkinImageCodec
@@ -60,7 +62,15 @@ val localModule = module {
     single { SettingsPreferences(PreferencesStores.get(androidContext(), PreferencesStores.SETTINGS), userPreferences = get()) }
     single<SkinImageCodec> { AndroidSkinImageCodec() }
     single { SkinStore(File(androidContext().filesDir, "skins"), get()) }
-    single { SkinRepository(get(), get()) }
+    single { FontStore(File(androidContext().filesDir, "fonts")) }
+    single { SkinRepository(get(), get(), fontStore = get()) }
+    single {
+        FontRepository(
+            store = get(),
+            fontSettingsFlow = get<SettingsPreferences>().fontSettings,
+            activeSkinFlow = get<SkinRepository>().activeSkin
+        )
+    }
     single { SourcePreferences(PreferencesStores.get(androidContext(), PreferencesStores.SOURCE)) }
     single { PlaylistExternalTrackStore(PreferencesStores.get(androidContext(), PreferencesStores.PLAYLIST_EXTERNAL)) }
     single { LanLinkPreferences(PreferencesStores.get(androidContext(), PreferencesStores.LAN_LINK)) }

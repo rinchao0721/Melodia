@@ -60,6 +60,7 @@ import com.lin0721.linmusic.core.ui.icons.SkipNext
 import com.lin0721.linmusic.core.ui.icons.SkipPrevious
 import com.lin0721.linmusic.core.ui.icons.Close
 import com.lin0721.linmusic.core.ui.icons.Lock
+import com.lin0721.linmusic.core.ui.font.LocalMelodiaFonts
 
 private const val TAG = "FloatingLyricOverlay"
 
@@ -166,6 +167,7 @@ fun FloatingLyricOverlay(
                         fontSize = style.fontSizeSp.sp,
                         lineHeight = lineHeight,
                         fontWeight = fontWeight,
+                        fontFamily = LocalMelodiaFonts.current.lyrics,
                         textAlign = textAlign,
                         style = LocalTextStyle.current.copy(shadow = shadow),
                         modifier = Modifier.fillMaxWidth()
@@ -179,6 +181,7 @@ fun FloatingLyricOverlay(
                         fontSize = secondarySize.sp,
                         lineHeight = (secondarySize * LINE_HEIGHT_SCALE).sp,
                         fontWeight = FontWeight.Medium,
+                        fontFamily = LocalMelodiaFonts.current.lyrics,
                         textAlign = textAlign,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,

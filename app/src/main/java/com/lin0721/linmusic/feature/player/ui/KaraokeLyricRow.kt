@@ -1,5 +1,7 @@
 package com.lin0721.linmusic.feature.player.ui
 
+import com.lin0721.linmusic.core.ui.font.LocalMelodiaFonts
+
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.LocalTextStyle
@@ -279,6 +281,7 @@ fun KaraokeLyricRow(
             fontSize = fontSize,
             lineHeight = lineHeight,
             fontWeight = fontWeight,
+            fontFamily = LocalMelodiaFonts.current.lyrics,
             color = inactiveColor,
             textAlign = textAlign,
             style = LocalTextStyle.current.copy(shadow = shadow),
@@ -296,6 +299,7 @@ fun KaraokeLyricRow(
             fontSize = fontSize,
             lineHeight = lineHeight,
             fontWeight = fontWeight,
+            fontFamily = LocalMelodiaFonts.current.lyrics,
             color = activeColor,
             textAlign = textAlign,
             modifier = Modifier

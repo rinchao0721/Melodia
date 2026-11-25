@@ -11,6 +11,7 @@ import android.os.IBinder
 import android.view.Gravity
 import android.view.WindowManager
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -40,6 +41,8 @@ import com.lin0721.linmusic.core.player.floatinglyric.LyricResizeHandle
 import com.lin0721.linmusic.core.player.floatinglyric.LyricResizeLimits
 import com.lin0721.linmusic.core.player.floatinglyric.LyricResizeState
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
+import com.lin0721.linmusic.core.ui.font.FontRepository
+import com.lin0721.linmusic.core.ui.font.LocalMelodiaFonts
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -68,6 +71,7 @@ class FloatingLyricService : Service() {
     private val playerManager: PlaybackController by inject()
     private val settingsPreferences: SettingsPreferences by inject()
     private val lyricsResolver: LyricsResolver by inject()
+    private val fontRepository: FontRepository by inject()
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
@@ -150,7 +154,12 @@ class FloatingLyricService : Service() {
             setViewTreeLifecycleOwner(viewOwner)
             setViewTreeSavedStateRegistryOwner(viewOwner)
             setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindow)
-            setContent { OverlayContent() }
+            setContent {
+                val resolvedFonts by fontRepository.resolvedFonts.collectAsState()
+                CompositionLocalProvider(LocalMelodiaFonts provides resolvedFonts) {
+                    OverlayContent()
+                }
+            }
         }
         try {
             wm.addView(view, layoutParams)

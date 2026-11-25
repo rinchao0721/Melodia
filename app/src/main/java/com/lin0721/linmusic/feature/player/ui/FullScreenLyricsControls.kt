@@ -1,5 +1,7 @@
 package com.lin0721.linmusic.feature.player.ui
 
+import com.lin0721.linmusic.core.ui.theme.melodiaNumberStyle
+
 import com.lin0721.linmusic.core.ui.components.PlayPauseIcon
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.SizeTransform
@@ -803,8 +805,8 @@ fun FullScreenControls(
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             val displayPosition = if (isSeeking) (seekPosition * duration).toLong() else currentPosition
-            Text(formatTime(displayPosition), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
-            Text(formatTime(duration), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+            Text(formatTime(displayPosition), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp, style = melodiaNumberStyle())
+            Text(formatTime(duration), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp, style = melodiaNumberStyle())
         }
 
         Spacer(modifier = Modifier.height(MelodiaSpacing.sm))
