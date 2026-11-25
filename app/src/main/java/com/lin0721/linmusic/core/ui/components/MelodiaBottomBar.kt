@@ -786,6 +786,7 @@ fun MelodiaNavigationBar(
     expanded: Boolean = false,
     transparentBackground: Boolean = false,
     isLocalMode: Boolean = false,
+    onOpenSidebar: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     // 平板宽屏下用 MelodiaColors.Surface + 描边，避免和页面背景融为一体
@@ -855,13 +856,14 @@ fun MelodiaNavigationBar(
             }
 
             navItems.forEach { (label, icon, targetScreen) ->
-                val isSelected = activeTab?.let { it == targetScreen } ?: (currentScreen == targetScreen)
+                val isSidebarAction = isLocalMode && targetScreen == Screen.MyProfile
+                val isSelected = if (isSidebarAction) false else activeTab?.let { it == targetScreen } ?: (currentScreen == targetScreen)
 
                 Column(
                     modifier = Modifier
                         .weight(1f)
                         .pressable(MelodiaPress.Tab) {
-                            onNavigate(targetScreen)
+                            if (isSidebarAction) onOpenSidebar() else onNavigate(targetScreen)
                         },
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center

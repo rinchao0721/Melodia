@@ -21,6 +21,7 @@ import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.lin0721.linmusic.core.source.MusicPlatform
 import com.lin0721.linmusic.core.ui.back.PredictiveBackTransitionContainer
 import com.lin0721.linmusic.core.ui.back.predictiveContentTransform
 import com.lin0721.linmusic.core.ui.back.rememberPredictiveBackTransition
@@ -145,7 +146,7 @@ fun MelodiaNavHost(
             when (screen) {
                 is Screen.Home -> {
                     val browsePlatform by homeViewModel.browsePlatform.collectAsStateWithLifecycle()
-                    if (browsePlatform == com.lin0721.linmusic.core.source.MusicPlatform.LOCAL) {
+                    if (browsePlatform == MusicPlatform.LOCAL) {
                         LocalLibraryScreen(
                             navigation = localMusicNavigation,
                             isRootTab = true,
@@ -153,24 +154,24 @@ fun MelodiaNavHost(
                         )
                     } else {
                         HomeScreen(
-                        viewModel = homeViewModel,
-                        selectedTab = homeTab,
-                        onTabSelected = onHomeTabSelected,
-                        showNewWorksFeed = showMusicNewWorks,
-                        onShowNewWorksFeedChanged = onShowMusicNewWorksChanged,
-                        onPlaylistClick = onNavigateToPlaylist,
-                        onPlaylistEntityClick = onNavigateToPlaylistEntity,
-                        onArtistClick = onNavigateToArtist,
-                        onRadioClick = onNavigateToRadio,
-                        onPodcastSubscribedClick = { onNavigateToScreen(Screen.PodcastSubscribed) },
-                        onPodcastToplistClick = { onNavigateToScreen(Screen.PodcastToplist) },
-                        onPodcastCategoryClick = { id, name -> onNavigateToScreen(Screen.PodcastCategory(id, name)) },
-                        onStyleClick = { id, name -> onNavigateToScreen(Screen.Style(id, name)) },
-                        onSearchClick = onNavigateToSearch,
-                        onCloudClick = { onNavigateToScreen(Screen.Cloud) },
-                        onOpenSidebar = onOpenSidebar,
-                        onOpenPlayer = onOpenPlayer,
-                        onOpenLocalMusic = onNavigateToLocalMusic,
+                            viewModel = homeViewModel,
+                            selectedTab = homeTab,
+                            onTabSelected = onHomeTabSelected,
+                            showNewWorksFeed = showMusicNewWorks,
+                            onShowNewWorksFeedChanged = onShowMusicNewWorksChanged,
+                            onPlaylistClick = onNavigateToPlaylist,
+                            onPlaylistEntityClick = onNavigateToPlaylistEntity,
+                            onArtistClick = onNavigateToArtist,
+                            onRadioClick = onNavigateToRadio,
+                            onPodcastSubscribedClick = { onNavigateToScreen(Screen.PodcastSubscribed) },
+                            onPodcastToplistClick = { onNavigateToScreen(Screen.PodcastToplist) },
+                            onPodcastCategoryClick = { id, name -> onNavigateToScreen(Screen.PodcastCategory(id, name)) },
+                            onStyleClick = { id, name -> onNavigateToScreen(Screen.Style(id, name)) },
+                            onSearchClick = onNavigateToSearch,
+                            onCloudClick = { onNavigateToScreen(Screen.Cloud) },
+                            onOpenSidebar = onOpenSidebar,
+                            onOpenPlayer = onOpenPlayer,
+                            onOpenLocalMusic = onNavigateToLocalMusic,
                             onLoginScreenVisibilityChanged = onLoginScreenVisibilityChanged
                         )
                     }

@@ -48,6 +48,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lin0721.linmusic.LocalBottomOverlayInset
+import com.lin0721.linmusic.core.localmusic.data.LocalSearch
+import com.lin0721.linmusic.core.localmusic.domain.LocalTrack as SharedLocalTrack
+import com.lin0721.linmusic.core.localmusic.domain.LocalTrackSource as SharedLocalTrackSource
+import com.lin0721.linmusic.core.localmusic.domain.buildLocalLibraryIndex as buildSharedLocalLibraryIndex
 import com.lin0721.linmusic.core.localmusic.ui.LocalLibraryTab
 import com.lin0721.linmusic.core.localmusic.ui.ResumePlaybackInfo
 import com.lin0721.linmusic.core.ui.components.EmptyState
@@ -740,21 +744,37 @@ private fun LibrarySearchResultList(
     onOpenAlbum: (String) -> Unit,
     onOpenArtist: (String) -> Unit
 ) {
-    val needle = query.trim().lowercase()
-    val matchedSongs = remember(needle, library) {
-        library.tracks.filter {
-            it.title.lowercase().contains(needle) ||
-                it.artist.lowercase().contains(needle) ||
-                (it.album?.lowercase()?.contains(needle) == true)
-        }
+    val searchResult = remember(query, library) {
+        val sharedIndex = buildSharedLocalLibraryIndex(
+            library.tracks.map { track ->
+                SharedLocalTrack(
+                    location = track.uri.toString(),
+                    mediaStoreId = track.mediaStoreId,
+                    title = track.title,
+                    artist = track.artist,
+                    album = track.album,
+                    durationMs = track.durationMs,
+                    sizeBytes = track.sizeBytes,
+                    path = track.path,
+                    folder = null,
+                    dateAddedMs = track.dateAddedMs,
+                    dateModifiedMs = track.dateAddedMs,
+                    source = SharedLocalTrackSource.EXTERNAL,
+                    songId = track.songId
+                )
+            }
+        )
+        LocalSearch.search(query, sharedIndex)
     }
-    val matchedAlbums = remember(needle, library) {
-        library.knownAlbums.filter {
-            it.name.lowercase().contains(needle) || it.artist.lowercase().contains(needle)
-        }
+    val trackByLocation = remember(library) { library.tracks.associateBy { it.uri.toString() } }
+    val matchedSongs = remember(searchResult, trackByLocation) {
+        searchResult.songs.mapNotNull { trackByLocation[it.location] }
     }
-    val matchedArtists = remember(needle, library) {
-        library.artists.filter { it.name.lowercase().contains(needle) }
+    val matchedAlbums = remember(searchResult, library) {
+        searchResult.albums.mapNotNull { library.album(it.key) }
+    }
+    val matchedArtists = remember(searchResult, library) {
+        searchResult.artists.mapNotNull { library.artist(it.name) }
     }
 
     if (matchedSongs.isEmpty() && matchedAlbums.isEmpty() && matchedArtists.isEmpty()) {

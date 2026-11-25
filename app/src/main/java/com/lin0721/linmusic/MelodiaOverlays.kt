@@ -136,6 +136,8 @@ fun MelodiaBottomOverlay(
     bottomBarLayout: List<BottomBarItemSetting> = BottomBarLayout.DEFAULT,
     bottomBarIconOnly: Boolean = false,
     bottomBarGradient: Boolean = false,
+    isLocalMode: Boolean = false,
+    onOpenSidebar: () -> Unit = {},
     activeTab: Screen? = null,
     onOverlayHeightChanged: (Dp) -> Unit = {}
 ) {
@@ -190,6 +192,8 @@ fun MelodiaBottomOverlay(
                                     iconOnly = bottomBarIconOnly,
                                     activeTab = activeTab,
                                     expanded = true,
+                                    isLocalMode = isLocalMode,
+                                    onOpenSidebar = onOpenSidebar,
                                     modifier = Modifier
                                         .then(
                                             if (isPanelDocked) Modifier.widthIn(max = ExpandedNavigationBarMaxWidth)
@@ -318,7 +322,9 @@ fun MelodiaBottomOverlay(
                                 bottomBarLayout = bottomBarLayout,
                                 iconOnly = bottomBarIconOnly,
                                 activeTab = activeTab,
-                                transparentBackground = gradientActive
+                                transparentBackground = gradientActive,
+                                isLocalMode = isLocalMode,
+                                onOpenSidebar = onOpenSidebar
                             )
                         }
                     }

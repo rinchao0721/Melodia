@@ -1118,6 +1118,8 @@ fun MelodiaApp() {
                             bottomBarLayout = bottomBarLayout,
                             bottomBarIconOnly = bottomBarIconOnly,
                             bottomBarGradient = bottomBarGradient,
+                            isLocalMode = browsePlatform == MusicPlatform.LOCAL,
+                            onOpenSidebar = { sidebar.open() },
                             activeTab = navigation.activeTab,
                             onOverlayHeightChanged = { bottomOverlayHeight = it }
                         )
