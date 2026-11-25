@@ -11,7 +11,11 @@ import com.lin0721.linmusic.core.model.Track
 import com.lin0721.linmusic.core.network.ResourceProvider
 import com.lin0721.linmusic.core.network.toUserMessage
 import com.lin0721.linmusic.core.player.PlaybackController
+import com.lin0721.linmusic.core.player.PlaybackStateStore
 import com.lin0721.linmusic.core.player.QueueItem
+import com.lin0721.linmusic.core.localmusic.ui.LocalLibraryTab
+import com.lin0721.linmusic.core.localmusic.ui.ResumePlaybackInfo
+import com.lin0721.linmusic.core.localmusic.ui.resolveResumePlayback
 import com.lin0721.linmusic.core.songlike.LoadLikedSongIdsUseCase
 import com.lin0721.linmusic.core.songlike.SongLikeRepository
 import com.lin0721.linmusic.core.source.MusicPlatform
@@ -111,6 +115,7 @@ class LocalMusicViewModel(
     private val songLikeRepository: SongLikeRepository,
     private val syncProfileAfterLoginUseCase: SyncProfileAfterLoginUseCase,
     private val resourceProvider: ResourceProvider,
+    private val playbackStateStore: PlaybackStateStore,
     userPreferences: UserPreferences
 ) : ViewModel() {
 
@@ -164,8 +169,20 @@ class LocalMusicViewModel(
     private val syncFinished = MutableStateFlow(false)
     private var observeJob: Job? = null
 
+    private val _selectedTab = MutableStateFlow(LocalLibraryTab.SONGS)
+    val selectedTab: StateFlow<LocalLibraryTab> = _selectedTab.asStateFlow()
+
+    private val _currentFolderPath = MutableStateFlow("")
+    val currentFolderPath: StateFlow<String> = _currentFolderPath.asStateFlow()
+
+    private val _resumePlayback = MutableStateFlow<ResumePlaybackInfo?>(null)
+    val resumePlayback: StateFlow<ResumePlaybackInfo?> = _resumePlayback.asStateFlow()
+
     init {
         loadLikedSongIds()
+        viewModelScope.launch {
+            _resumePlayback.value = resolveResumePlayback(playbackStateStore.loadQueueState())
+        }
     }
 
     fun loadLikedSongIds() {
@@ -234,6 +251,31 @@ class LocalMusicViewModel(
                         else -> LocalMusicUiState.Loading
                     }
                 }
+        }
+    }
+
+    fun selectTab(tab: LocalLibraryTab) {
+        _selectedTab.value = tab
+    }
+
+    fun openFolderPath(path: String) {
+        _currentFolderPath.value = path
+    }
+
+    fun shuffleAll() {
+        val tracks = (uiState.value as? LocalMusicUiState.Success)?.tracks.orEmpty()
+        if (tracks.isNotEmpty()) {
+            playTracks(tracks, shuffle = true)
+        }
+    }
+
+    fun resumeLastPlayback() {
+        viewModelScope.launch {
+            val state = playbackStateStore.loadQueueState()
+            if (state.queue.isNotEmpty()) {
+                val safeIndex = state.currentIndex.coerceIn(0, state.queue.lastIndex)
+                playerManager.playQueue(state.queue, safeIndex, state.playContext?.ifBlank { PLAY_CONTEXT } ?: PLAY_CONTEXT)
+            }
         }
     }
 

@@ -87,10 +87,10 @@ fun LocalTrackActionsHost(
             PlaylistSongOptionsSheet(
                 track = fullTrack,
                 isLiked = fullTrack.id in likedSongIds,
-                isLoggedIn = userProfile != null,
+                isLoggedIn = !isLocalMode && userProfile != null,
                 onDismiss = { viewModel.closeTrackMenu() },
                 onAddToPlayNext = { viewModel.addTrackToPlayNext(it) },
-                onToggleLike = { songId, like -> viewModel.toggleLikeSong(songId, like) },
+                onToggleLike = { songId, like -> if (!isLocalMode) viewModel.toggleLikeSong(songId, like) },
                 onCollectClick = { songId ->
                     if (isLocalMode) {
                         viewModel.openPlaylistPicker(listOf(track))
@@ -99,8 +99,12 @@ fun LocalTrackActionsHost(
                         viewModel.prepareCollectDialog(songId)
                     }
                 },
-                onArtistClick = navigation.openOnlineArtist,
-                onAlbumClick = navigation.openOnlineAlbum,
+                onArtistClick = { id ->
+                    if (isLocalMode) navigation.openArtist(track.artist) else navigation.openOnlineArtist(id)
+                },
+                onAlbumClick = { id ->
+                    if (!isLocalMode) navigation.openOnlineAlbum(id)
+                },
                 onRequireLogin = { showLoginSheet = true },
                 onShareClick = { shareTarget = it },
                 extraOptions = {

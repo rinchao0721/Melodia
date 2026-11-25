@@ -785,6 +785,7 @@ fun MelodiaNavigationBar(
     activeTab: Screen? = null,
     expanded: Boolean = false,
     transparentBackground: Boolean = false,
+    isLocalMode: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     // 平板宽屏下用 MelodiaColors.Surface + 描边，避免和页面背景融为一体
@@ -832,15 +833,24 @@ fun MelodiaNavigationBar(
                 ),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            val navItems = bottomBarLayout.filter { it.visible }.map { setting ->
-                when (setting.item) {
-                    BottomBarItem.HOME -> Triple("主页", MelodiaIcons.Home, Screen.Home)
-                    BottomBarItem.SEARCH -> Triple("搜索", MelodiaIcons.Search, Screen.Search)
-                    BottomBarItem.LIBRARY -> Triple("音乐库", MelodiaIcons.Library, Screen.Library)
-                    BottomBarItem.LOCAL_MUSIC -> Triple("本地音乐", MelodiaIcons.LocalMusic, Screen.LocalMusic)
-                    BottomBarItem.DOWNLOADS -> Triple("下载管理", MelodiaIcons.Download, Screen.Downloads)
-                    BottomBarItem.CLOUD -> Triple("我的云盘", MelodiaIcons.Cloud, Screen.Cloud)
-                    BottomBarItem.PROFILE -> Triple("个人主页", MelodiaIcons.Person, Screen.MyProfile)
+            val navItems = if (isLocalMode) {
+                listOf(
+                    Triple("曲库", MelodiaIcons.LocalMusic, Screen.Home),
+                    Triple("歌单", MelodiaIcons.Library, Screen.LocalPlaylists),
+                    Triple("下载", MelodiaIcons.Download, Screen.Downloads),
+                    Triple("我的", MelodiaIcons.Person, Screen.MyProfile)
+                )
+            } else {
+                bottomBarLayout.filter { it.visible }.map { setting ->
+                    when (setting.item) {
+                        BottomBarItem.HOME -> Triple("主页", MelodiaIcons.Home, Screen.Home)
+                        BottomBarItem.SEARCH -> Triple("搜索", MelodiaIcons.Search, Screen.Search)
+                        BottomBarItem.LIBRARY -> Triple("音乐库", MelodiaIcons.Library, Screen.Library)
+                        BottomBarItem.LOCAL_MUSIC -> Triple("本地音乐", MelodiaIcons.LocalMusic, Screen.LocalMusic)
+                        BottomBarItem.DOWNLOADS -> Triple("下载管理", MelodiaIcons.Download, Screen.Downloads)
+                        BottomBarItem.CLOUD -> Triple("我的云盘", MelodiaIcons.Cloud, Screen.Cloud)
+                        BottomBarItem.PROFILE -> Triple("个人主页", MelodiaIcons.Person, Screen.MyProfile)
+                    }
                 }
             }
 

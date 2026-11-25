@@ -35,7 +35,7 @@ import com.lin0721.linmusic.feature.localmusic.ui.collection.LocalArtistScreen
 import com.lin0721.linmusic.feature.localmusic.ui.collection.LocalArtistsScreen
 import com.lin0721.linmusic.feature.localmusic.ui.collection.LocalFolderScreen
 import com.lin0721.linmusic.feature.localmusic.ui.collection.LocalFoldersScreen
-import com.lin0721.linmusic.feature.localmusic.ui.home.LocalMusicHomeScreen
+import com.lin0721.linmusic.feature.localmusic.ui.library.LocalLibraryScreen
 import com.lin0721.linmusic.feature.localmusic.ui.playlist.LocalPlaylistScreen
 import com.lin0721.linmusic.feature.localmusic.ui.playlist.LocalPlaylistsScreen
 import com.lin0721.linmusic.feature.localmusic.ui.songs.LocalSongsScreen
@@ -144,7 +144,15 @@ fun MelodiaNavHost(
                 val screen = entry.screen
             when (screen) {
                 is Screen.Home -> {
-                    HomeScreen(
+                    val browsePlatform by homeViewModel.browsePlatform.collectAsStateWithLifecycle()
+                    if (browsePlatform == com.lin0721.linmusic.core.source.MusicPlatform.LOCAL) {
+                        LocalLibraryScreen(
+                            navigation = localMusicNavigation,
+                            isRootTab = true,
+                            onOpenSidebar = onOpenSidebar
+                        )
+                    } else {
+                        HomeScreen(
                         viewModel = homeViewModel,
                         selectedTab = homeTab,
                         onTabSelected = onHomeTabSelected,
@@ -163,8 +171,9 @@ fun MelodiaNavHost(
                         onOpenSidebar = onOpenSidebar,
                         onOpenPlayer = onOpenPlayer,
                         onOpenLocalMusic = onNavigateToLocalMusic,
-                        onLoginScreenVisibilityChanged = onLoginScreenVisibilityChanged
-                    )
+                            onLoginScreenVisibilityChanged = onLoginScreenVisibilityChanged
+                        )
+                    }
                 }
                 is Screen.Playlist -> {
                     com.lin0721.linmusic.feature.playlist.ui.PlaylistScreen(
@@ -208,7 +217,7 @@ fun MelodiaNavHost(
                         onAlbumEntityClick = { entityId -> onNavigateToPlaylistEntity(entityId, true) }
                     )
                 }
-                is Screen.LocalMusic -> LocalMusicHomeScreen(navigation = localMusicNavigation)
+                is Screen.LocalMusic -> LocalLibraryScreen(navigation = localMusicNavigation)
                 is Screen.LocalSongs -> LocalSongsScreen(navigation = localMusicNavigation)
                 is Screen.LocalArtists -> LocalArtistsScreen(navigation = localMusicNavigation)
                 is Screen.LocalAlbums -> LocalAlbumsScreen(navigation = localMusicNavigation)
