@@ -53,8 +53,9 @@ internal actual object FontPlatformLoader {
                     val file = File(dir, face.file)
                     if (!file.isFile) return null
                     try {
+                        // Skia 按 identity 缓存字形，文件被覆盖后需换 identity
                         Font(
-                            identity = "${entry.id}:${face.file}:${face.weight}:${face.italic}",
+                            identity = "${entry.id}:${face.file}:${face.weight}:${face.italic}:${file.length()}:${file.lastModified()}",
                             data = file.readBytes(),
                             weight = FontWeight(face.weight.coerceIn(1, 1000)),
                             style = if (face.italic) FontStyle.Italic else FontStyle.Normal

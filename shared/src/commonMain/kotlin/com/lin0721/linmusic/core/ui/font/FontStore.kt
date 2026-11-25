@@ -116,7 +116,6 @@ class FontStore(
             val savedFaces = mutableListOf<FontFaceSpec>()
             var totalBytes = 0L
             var hasChinese = false
-            var copyFailed = false
 
             for (item in groupFaces) {
                 val safeFileName = uniqueFileName(targetDir, sanitizeFileName(item.file.name))
@@ -131,12 +130,12 @@ class FontStore(
                     totalBytes += item.size
                     if (item.metadata.hasChinese) hasChinese = true
                 } catch (e: IOException) {
+                    dest.delete()
                     failures += FontImportFailure(item.file.name, "复制字体文件失败：${e.message}")
-                    copyFailed = true
                 }
             }
 
-            if (savedFaces.isEmpty() || (copyFailed && savedFaces.isEmpty())) {
+            if (savedFaces.isEmpty()) {
                 targetDir.deleteRecursively()
                 continue
             }
@@ -202,6 +201,7 @@ class FontStore(
                     hasChinese = true
                 }
             } catch (e: IOException) {
+                dest.delete()
                 AppLogger.w(TAG, "复制皮肤字体失败: ${face.file}", e)
             }
         }

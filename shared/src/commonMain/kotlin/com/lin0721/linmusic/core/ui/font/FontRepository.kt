@@ -194,18 +194,29 @@ class FontRepository(
     }
 
     private fun loadFontFamilyCached(entry: FontEntry, directory: File?): FontFamily? {
+        val key = cacheKey(entry, directory)
         synchronized(cache) {
-            if (cache.containsKey(entry.id)) {
-                return cache[entry.id]
+            if (cache.containsKey(key)) {
+                return cache[key]
             }
         }
         val built = familyLoader(entry, directory)
         synchronized(cache) {
             if (built != null) {
-                cache[entry.id] = built
+                cache[key] = built
             }
         }
         return built
+    }
+
+    // 覆盖安装同 id 皮肤时 id 不变而文件已换，键里带上文件指纹
+    private fun cacheKey(entry: FontEntry, directory: File?): String {
+        if (directory == null) return entry.id
+        val faces = entry.faces.joinToString("|") { face ->
+            val file = File(directory, face.file)
+            "${face.file}:${face.weight}:${face.italic}:${file.length()}:${file.lastModified()}"
+        }
+        return "${entry.id}@${directory.path}#$faces"
     }
 
     private fun reportFallback(event: FontFallbackEvent) {

@@ -319,7 +319,7 @@ private fun ImportedFontRow(entry: FontEntry, fontStore: FontStore, onDelete: ()
             runCatching {
                 FontFamily(
                     PlatformFont(
-                        identity = "${entry.id}:${face.file}",
+                        identity = "${entry.id}:${face.file}:${file.length()}:${file.lastModified()}",
                         data = file.readBytes(),
                         weight = FontWeight(face.weight.coerceIn(100, 900)),
                         style = if (face.italic) FontStyle.Italic else FontStyle.Normal
