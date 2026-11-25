@@ -53,6 +53,7 @@ import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricSecondary
 import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricShadow
 import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricStyle
 import com.lin0721.linmusic.core.preferences.UiScale
+import com.lin0721.linmusic.core.about.OpenSourceCredits
 import com.lin0721.linmusic.core.update.UpdateChecker
 import com.lin0721.linmusic.core.update.data.UpdateRepository
 import com.lin0721.linmusic.desktop.app.AppInfo
@@ -1408,6 +1409,25 @@ internal fun settingsEntries(
                     clipboard.setText(AnnotatedString(QQ_GROUP))
                     navigator.showMessage("已复制群号")
                 })
+            }
+        )
+        add(
+            SettingsEntry(
+                key = "openSourceCredits",
+                category = SettingsCategory.About,
+                title = "特别感谢",
+                subtitle = OpenSourceCredits.INTRO,
+                keywords = listOf("致谢", "感谢", "开源", "项目") + OpenSourceCredits.all.map { it.name },
+                group = "特别感谢"
+            ) {
+                Text(OpenSourceCredits.INTRO, color = DesktopColors.TextGray, fontSize = 12.sp)
+                OpenSourceCredits.all.forEach { credit ->
+                    SettingRow(credit.name, credit.description) {
+                        SettingsActionButton("打开", onClick = {
+                            if (!openInBrowser(credit.url)) navigator.showMessage("无法打开浏览器")
+                        })
+                    }
+                }
             }
         )
     }

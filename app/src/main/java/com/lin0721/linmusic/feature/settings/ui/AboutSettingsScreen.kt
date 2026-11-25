@@ -27,6 +27,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lin0721.linmusic.BuildConfig
 import com.lin0721.linmusic.LocalBottomOverlayInset
 import com.lin0721.linmusic.R
+import com.lin0721.linmusic.core.about.OpenSourceCredits
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.ui.components.MelodiaDragHandle
 import com.lin0721.linmusic.core.ui.components.ToastManager
@@ -108,7 +109,7 @@ fun AboutSettingsView(viewModel: SettingsViewModel) {
         item {
             SettingsGroupCard(SettingsSubMenu.ABOUT.sectionTitles[1]) {
                 Text(
-                    text = "Melodia 是一款基于 Jetpack Compose 构建的第三方网易云音乐播放器。\n\n" +
+                    text = "Melodia 是一款基于 Jetpack Compose 构建的第三方音乐播放器，支持网易云音乐与酷狗音乐。\n\n" +
                             "本项目基于开源协议发布。",
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
                     fontSize = 14.sp,
@@ -241,27 +242,25 @@ fun AboutSettingsView(viewModel: SettingsViewModel) {
         item {
             SettingsGroupCard(SettingsSubMenu.ABOUT.sectionTitles[3]) {
                 Text(
-                    text = "本项目的开发与运行离不开以下优秀开源项目：\n\n" +
-                            "• NeteaseCloudMusicApi\n" +
-                            "• NeteaseCloudMusicApiEnhanced\n" +
-                            "• SPlayer\n" +
-                            "• AMLL\n" +
-                            "• SuperLyric\n" +
-                            "• LyricInfo\n" +
-                            "• Lyricon\n" +
-                            "• node-vibrant\n" +
-                            "• Jetpack Compose & Media3\n" +
-                            "• Retrofit & OkHttp\n" +
-                            "• Koin\n" +
-                            "• Coil\n" +
-                            "• Haze\n" +
-                            "• libusb",
+                    text = OpenSourceCredits.INTRO,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 13.sp,
                     textAlign = TextAlign.Start,
                     lineHeight = 20.sp,
                     modifier = Modifier.padding(vertical = 12.dp)
                 )
+                OpenSourceCredits.all.forEach { credit ->
+                    HorizontalDivider(color = MelodiaColors.Divider)
+                    SettingsRow(
+                        title = credit.name,
+                        subtitle = credit.description,
+                        onClick = {
+                            runCatching {
+                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(credit.url)))
+                            }.onFailure { ToastManager.showToast("无法打开浏览器") }
+                        }
+                    )
+                }
             }
         }
     }

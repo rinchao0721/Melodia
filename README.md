@@ -1,7 +1,7 @@
 <div align="center">
   <img src="docs/images/cover.png" alt="Melodia" />
 
-参考Spotify UI构建的现代化、轻量级第三方网易云音乐客户端。
+参考 Spotify UI 构建的现代化、轻量级第三方音乐客户端，支持网易云音乐与酷狗音乐账号。
 
 
 [![GitHub Release](https://img.shields.io/github/v/release/rinchao0721/Melodia?style=flat-square&color=blue)](https://github.com/rinchao0721/Melodia/releases)
@@ -70,11 +70,11 @@
 ---
 ## 项目架构
 
-项目以三个主模块为核心：网易云接口、加密、数据仓储与大部分 ViewModel 只在 `shared` 中维护一份，Android 与桌面端各自负责界面和平台能力；另有插件接口与基线配置文件两个辅助模块：
+项目以三个主模块为核心：网易云与酷狗接口、加密、数据仓储与大部分 ViewModel 只在 `shared` 中维护一份，Android 与桌面端各自负责界面和平台能力；另有插件接口与基线配置文件两个辅助模块：
 
 | 模块 | 类型 | 职责 |
 |---|---|---|
-| `shared` | Kotlin Multiplatform（Android + 桌面 JVM） | 数据模型、网络与原生加密、各业务域 `data` / `domain`、跨平台 ViewModel 与展示逻辑、播放器抽象 `PlaybackController` 及心动模式 / 漫游 / 私人FM 等特殊播放控制 |
+| `shared` | Kotlin Multiplatform（Android + 桌面 JVM） | 数据模型、网络与原生加密（网易云、酷狗）、多平台账号与统一数据模型、各业务域 `data` / `domain`、跨平台 ViewModel 与展示逻辑、播放器抽象 `PlaybackController` 及心动模式 / 漫游 / 私人FM 等特殊播放控制 |
 | `app` | Android 应用 | Jetpack Compose 界面、Media3 播放、下载、本地音乐、识曲、悬浮与系统歌词、预见式返回等 Android 专属能力 |
 | `desktopApp` | Compose Desktop 应用（Windows） | 桌面窗口与界面、libmpv 播放、托盘、系统媒体控制（SMTC）与全局快捷键、桌面歌词、插件运行时；系统能力经平台接口接入 |
 | `plugin-api` / `plugin-sample` | Kotlin JVM 库 / 示例插件 | 插件对外接口与数据模型，以及一个可直接参考的示例插件 |
@@ -87,6 +87,7 @@ shared/src/
 ├── commonMain/kotlin/com/lin0721/linmusic/
 │   ├── core/                    # 共享基础能力
 │   │   ├── api · auth · network · model · preferences · format   # 接口、鉴权、加密网络、模型、偏好与格式化
+│   │   ├── kugou/ · platform/   # 酷狗协议与接口、多平台账号与统一数据仓储
 │   │   ├── player/              # PlaybackController 抽象、播放队列，心动模式 / 漫游 / 私人FM 控制器
 │   │   ├── source/ · offline/ · cache/   # 音源路由与外部音源、离线可播判断、元数据缓存与离线回退
 │   │   ├── plugin/              # 插件扩展点注册与宿主接口
@@ -195,19 +196,28 @@ Repository 边界统一产出 Kotlin `Result<T>`，异常类型抽象为领域�
 
 - [NeteaseCloudMusicApi](https://github.com/binaryify/NeteaseCloudMusicApi) - 网易云音乐 API 分析与实现参考
 - [api-enhanced](https://github.com/NeteaseCloudMusicApiEnhanced/api-enhanced) - 增强接口与加密逻辑参考
-- [node-vibrant](https://github.com/Vibrant-Colors/node-vibrant) - 取色算法参考
-- [SPlayer](https://github.com/SPlayer-Dev/SPlayer) - 现代流媒体架构设计启发
-- [Mei](https://github.com/ljyh223/Mei) — QQ 音乐歌词解析参考
+- [KuGouMusicApi](https://github.com/MakcRe/KuGouMusicApi) - 酷狗音乐接口、签名与加密参考
+- [qq-music-api](https://github.com/Rain120/qq-music-api) - QQ 音乐接口参考
+- [Mei](https://github.com/ljyh223/Mei) - QQ 音乐歌词解析参考
 - [AMLL 歌词库](https://github.com/amll-dev/amll-ttml-db) - TTML 逐字歌词、对唱与背景和声歌词来源
-- [Spotify](https://spotify.com) - 优秀的移动端流媒体交互范式与 UI/UX 体验灵感
+- [SPlayer](https://github.com/SPlayer-Dev/SPlayer) - 现代流媒体架构设计启发
+- [Spotify](https://spotify.com) - 移动端流媒体交互范式与 UI/UX 体验灵感
+- [node-vibrant](https://github.com/Vibrant-Colors/node-vibrant) - 取色算法参考
 - [SuperLyric](https://github.com/HChenX/SuperLyric) - 系统级实时歌词协议与 AIDL 规范
 - [LyricInfo](https://github.com/limczhh/LyricInfo) - 蓝牙/系统歌词协议规范
 - [Lyricon](https://github.com/proify/Lyricon) - 词幕协议广播规范
+- [Compose Multiplatform](https://github.com/JetBrains/compose-multiplatform) - 跨平台共享层与桌面端界面框架
+- [Media3](https://github.com/androidx/media) - Android 端播放内核
 - [mpv](https://github.com/mpv-player/mpv) - 桌面端音频播放内核 libmpv
 - [media-kit](https://github.com/media-kit/media-kit) - 精简的纯音频 libmpv 构建
-- [Compose Multiplatform](https://github.com/JetBrains/compose-multiplatform) - 跨平台共享层与桌面端界面框架
 - [JNA](https://github.com/java-native-access/jna) - 桌面端调用 libmpv 与 Win32 接口
+- [libusb](https://github.com/libusb/libusb) - USB 音频独占输出
 - [TagLib](https://github.com/Kyant0/taglib) - 本地音乐标签读写
+- [Retrofit](https://github.com/square/retrofit) - 网络接口定义
+- [OkHttp](https://github.com/square/okhttp) - 网络请求
+- [Koin](https://github.com/InsertKoinIO/koin) - 依赖注入
+- [Coil](https://github.com/coil-kt/coil) - 图片加载
+- [Haze](https://github.com/chrisbanes/haze) - 毛玻璃模糊效果
 
 ---
 
