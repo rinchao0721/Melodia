@@ -1,6 +1,7 @@
 package com.lin0721.linmusic.core.ui.skin
 
 import androidx.compose.ui.graphics.Color
+import com.lin0721.linmusic.core.ui.font.FontFaceSpec
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.lin0721.linmusic.core.ui.theme.MelodiaStyle
@@ -80,7 +81,7 @@ object SkinParser {
             darkColors = parseColors(colors?.get(SkinMode.DARK.key), SkinMode.DARK, warnings),
             lightColors = parseColors(colors?.get(SkinMode.LIGHT.key), SkinMode.LIGHT, warnings),
             background = parseBackground(root["background"], directory, warnings),
-            style = parseStyle(root["style"], warnings),
+            style = parseStyle(root["style"], directory, warnings),
             layouts = parseLayouts(root["layouts"], warnings),
             directory = directory,
             cover = parseCover(root["cover"], warnings)
@@ -169,7 +170,7 @@ object SkinParser {
         )
     }
 
-    private fun parseStyle(element: JsonElement?, warnings: MutableList<String>): MelodiaStyle {
+    private fun parseStyle(element: JsonElement?, directory: File?, warnings: MutableList<String>): MelodiaStyle {
         val default = MelodiaStyle.Default
         if (element == null) return default
         val obj = element as? JsonObject ?: run {
@@ -179,13 +180,7 @@ object SkinParser {
         val radius = obj["radius"] as? JsonObject
         val font = obj["font"] as? JsonObject
         val border = obj["border"] as? JsonObject
-        val fontKey = font?.string("family")
-        val fontFamily = when {
-            fontKey == null -> ThemeFont.DEFAULT
-            else -> ThemeFont.fromKey(fontKey) ?: ThemeFont.DEFAULT.also {
-                warnings += if (fontKey.startsWith(SkinPaths.ASSETS_PREFIX)) "暂不支持随包字体文件，已使用默认字体" else "style.font.family 取值无效，已使用默认字体"
-            }
-        }
+        val (fontFamily, fontFaces) = parseFont(font, directory, warnings)
         val paneBorder = if (border?.boolean("panes") == true) {
             border.clampedFloat("width", MIN_BORDER_WIDTH, MAX_BORDER_WIDTH, 1f, "style.border.width", warnings).dp
         } else {
@@ -197,11 +192,61 @@ object SkinParser {
             coverRadius = radius?.optionalRadius("cover", MAX_SHAPE_RADIUS, warnings),
             buttonRadius = radius?.optionalRadius("button", MAX_SHAPE_RADIUS, warnings),
             font = fontFamily,
+            fontFaces = fontFaces,
             density = obj.enumValue("density", ThemeDensity::fromKey, default.density, warnings),
             paneBorder = paneBorder,
             progress = obj.enumValue("progress", ThemeProgressStyle::fromKey, default.progress, warnings),
             controls = obj.enumValue("controlStyle", ThemeControlStyle::fromKey, default.controls, warnings)
         )
+    }
+
+    private fun parseFont(
+        fontObj: JsonObject?,
+        directory: File?,
+        warnings: MutableList<String>
+    ): Pair<ThemeFont, List<FontFaceSpec>> {
+        if (fontObj == null) return ThemeFont.DEFAULT to emptyList()
+        val fontKey = fontObj.string("family")
+        val facesArray = fontObj["faces"] as? kotlinx.serialization.json.JsonArray
+        val parsedFaces = mutableListOf<FontFaceSpec>()
+
+        if (facesArray != null) {
+            for (item in facesArray) {
+                val faceObj = item as? JsonObject ?: continue
+                val file = faceObj.string("file") ?: continue
+                if (!SkinPaths.isFontAsset(file)) {
+                    warnings += "style.font.faces 中的路径 $file 无效，只支持 assets/ 下的字体文件"
+                    continue
+                }
+                if (directory != null && !File(directory, file).isFile) {
+                    warnings += "皮肤包里找不到字体文件 $file"
+                    continue
+                }
+                val weight = (faceObj.int("weight") ?: 400).coerceIn(1, 1000)
+                val italic = faceObj.boolean("italic") ?: false
+                parsedFaces += FontFaceSpec(file = file, weight = weight, italic = italic)
+            }
+        }
+
+        val themeFont = when {
+            fontKey == null -> ThemeFont.DEFAULT
+            fontKey.startsWith(SkinPaths.ASSETS_PREFIX) -> {
+                if (parsedFaces.isEmpty()) {
+                    if (!SkinPaths.isFontAsset(fontKey)) {
+                        warnings += "style.font.family 路径 $fontKey 无效，只支持 assets/ 下的字体文件"
+                    } else if (directory != null && !File(directory, fontKey).isFile) {
+                        warnings += "皮肤包里找不到字体文件 $fontKey"
+                    } else {
+                        parsedFaces += FontFaceSpec(file = fontKey, weight = 400, italic = false)
+                    }
+                }
+                ThemeFont.DEFAULT
+            }
+            else -> ThemeFont.fromKey(fontKey) ?: ThemeFont.DEFAULT.also {
+                warnings += "style.font.family 取值无效，已使用默认字体"
+            }
+        }
+        return themeFont to parsedFaces
     }
 
     // 缺省与无法识别的取值都按跟随封面处理；透出背景图在没有背景图时也按跟随封面处理
@@ -320,4 +365,7 @@ object SkinPaths {
 
     fun isImageAsset(path: String): Boolean =
         isAsset(path) && path.substringAfterLast('.', "").lowercase() in imageExtensions
+
+    fun isFontAsset(path: String): Boolean =
+        isAsset(path) && path.substringAfterLast('.', "").lowercase() in fontExtensions
 }

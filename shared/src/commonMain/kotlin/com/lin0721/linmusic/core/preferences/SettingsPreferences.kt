@@ -25,6 +25,10 @@ import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricShadow
 import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricStyle
 import com.lin0721.linmusic.core.player.domain.LyricFilterConfig
 import com.lin0721.linmusic.core.player.domain.LyricFilterRules
+import com.lin0721.linmusic.core.ui.font.FONT_ID_FOLLOW
+import com.lin0721.linmusic.core.ui.font.FONT_ID_SKIN
+import com.lin0721.linmusic.core.ui.font.FontRole
+import com.lin0721.linmusic.core.ui.font.FontSettings
 import com.lin0721.linmusic.core.ui.skin.BUILTIN_SKIN_ID
 import com.lin0721.linmusic.core.ui.theme.ThemeAccents
 import com.lin0721.linmusic.core.ui.theme.parseRgbHex
@@ -120,6 +124,11 @@ class SettingsPreferences(
         private val KEY_THEME_SKIN_LEGACY = stringPreferencesKey("theme_skin")
         private val KEY_THEME_SKIN_DARK = stringPreferencesKey("theme_skin_dark")
         private val KEY_THEME_SKIN_LIGHT = stringPreferencesKey("theme_skin_light")
+        // 字体设置：全局与三角色，不区分深浅模式
+        private val KEY_FONT_GLOBAL = stringPreferencesKey("font_global")
+        private val KEY_FONT_TITLE = stringPreferencesKey("font_title")
+        private val KEY_FONT_LYRICS = stringPreferencesKey("font_lyrics")
+        private val KEY_FONT_NUMBERS = stringPreferencesKey("font_numbers")
         const val PLAYER_PAGE_MODE_AUTO = "auto"
         const val PLAYER_PAGE_MODE_FULLSCREEN = "fullscreen"
         const val PLAYER_PAGE_MODE_SIDE = "side"
@@ -1379,6 +1388,36 @@ class SettingsPreferences(
     suspend fun saveKugouClientMode(mode: KugouClientMode) {
         dataStore.edit { prefs ->
             prefs[KEY_KUGOU_CLIENT_MODE] = mode.name
+        }
+    }
+
+    val fontSettings: Flow<FontSettings> = dataStore.data.map { prefs ->
+        FontSettings(
+            globalFontId = prefs[KEY_FONT_GLOBAL]?.takeIf { it.isNotBlank() } ?: FONT_ID_SKIN,
+            titleFontId = prefs[KEY_FONT_TITLE]?.takeIf { it.isNotBlank() } ?: FONT_ID_FOLLOW,
+            lyricsFontId = prefs[KEY_FONT_LYRICS]?.takeIf { it.isNotBlank() } ?: FONT_ID_FOLLOW,
+            numbersFontId = prefs[KEY_FONT_NUMBERS]?.takeIf { it.isNotBlank() } ?: FONT_ID_FOLLOW
+        )
+    }.distinctUntilChanged()
+
+    suspend fun setFontSettings(settings: FontSettings) {
+        dataStore.edit { prefs ->
+            prefs[KEY_FONT_GLOBAL] = settings.globalFontId
+            prefs[KEY_FONT_TITLE] = settings.titleFontId
+            prefs[KEY_FONT_LYRICS] = settings.lyricsFontId
+            prefs[KEY_FONT_NUMBERS] = settings.numbersFontId
+        }
+    }
+
+    suspend fun setRoleFont(role: FontRole, fontId: String) {
+        dataStore.edit { prefs ->
+            val key = when (role) {
+                FontRole.GLOBAL -> KEY_FONT_GLOBAL
+                FontRole.TITLE -> KEY_FONT_TITLE
+                FontRole.LYRICS -> KEY_FONT_LYRICS
+                FontRole.NUMBERS -> KEY_FONT_NUMBERS
+            }
+            prefs[key] = fontId
         }
     }
 }

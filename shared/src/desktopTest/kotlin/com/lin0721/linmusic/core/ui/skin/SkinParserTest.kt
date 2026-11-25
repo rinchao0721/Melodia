@@ -95,10 +95,11 @@ class SkinParserTest {
     }
 
     @Test
-    fun `随包字体本期不支持`() {
+    fun `随包字体支持 assets 路径`() {
         val parsed = success("""{"format":1,"id":"a","name":"b","style":{"font":{"family":"assets/x.ttf"}}}""")
         assertEquals(ThemeFont.DEFAULT, parsed.skin.style.font)
-        assertEquals(1, parsed.warnings.size)
+        assertEquals(0, parsed.warnings.size)
+        assertEquals(1, parsed.skin.style.fontFaces.size)
     }
 
     @Test

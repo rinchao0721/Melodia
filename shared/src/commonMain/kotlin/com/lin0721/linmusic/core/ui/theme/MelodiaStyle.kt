@@ -9,6 +9,7 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.lin0721.linmusic.core.ui.font.FontFaceSpec
 
 // 皮肤可调的非颜色样式；可空项为 null 时各组件沿用自身默认值
 @Immutable
@@ -18,6 +19,7 @@ data class MelodiaStyle(
     val coverRadius: Dp? = null,
     val buttonRadius: Dp? = null,
     val font: ThemeFont = ThemeFont.DEFAULT,
+    val fontFaces: List<FontFaceSpec> = emptyList(),
     val density: ThemeDensity = ThemeDensity.NORMAL,
     val paneBorder: Dp? = null,
     val progress: ThemeProgressStyle = ThemeProgressStyle.LINE,

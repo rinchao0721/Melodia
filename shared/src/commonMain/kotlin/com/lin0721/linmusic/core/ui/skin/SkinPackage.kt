@@ -48,8 +48,9 @@ sealed interface SkinStageResult {
 object SkinPackage {
 
     private const val MAX_ENTRIES = 32
-    private const val MAX_TOTAL_BYTES = 20L * 1024 * 1024
+    private const val MAX_TOTAL_BYTES = 60L * 1024 * 1024
     private const val MAX_ASSET_BYTES = 10L * 1024 * 1024
+    private const val MAX_FONT_ASSET_BYTES = 30L * 1024 * 1024
     private const val MAX_MANIFEST_BYTES = 256L * 1024
 
     private val json = Json { prettyPrint = true }
@@ -77,6 +78,7 @@ object SkinPackage {
         val extracted = SafeZip.extract(input, directory, "皮肤包", MAX_ENTRIES, MAX_TOTAL_BYTES) { name ->
             when {
                 name == SkinPaths.MANIFEST -> MAX_MANIFEST_BYTES
+                SkinPaths.isFontAsset(name) -> MAX_FONT_ASSET_BYTES
                 SkinPaths.isAsset(name) -> MAX_ASSET_BYTES
                 else -> null
             }

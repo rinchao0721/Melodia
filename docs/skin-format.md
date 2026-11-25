@@ -122,7 +122,8 @@ assets/bg.jpg      可选，背景图（png / jpg / jpeg / webp）
 | `radius.card` | 0–32 | 播放页信息卡、桌面正在播放卡片、首页每日推荐卡 |
 | `radius.cover` | 0–999 | 封面缩略图与大封面；圆形头像与直角封面不受影响 |
 | `radius.button` | 0–999 | 通用按钮、对话框按钮、播放主按钮 |
-| `font.family` | `default` / `monospace` | 全局字体 |
+| `font.family` | `default` / `monospace` / `assets/*.ttf` / `assets/*.otf` | 全局字体；写随包字体路径时作为 400 常规字重，单文件上限 30MB，皮肤包总量上限 60MB |
+| `font.faces` | `[{ "file": "assets/...", "weight": 400, "italic": false }]` | 多字重/斜体随包字体列表；存在时优先于 `font.family` |
 | `border.panes` / `border.width` | 布尔 / 0.5–2 | 面板与浮层描边 |
 | `density` | `compact` / `normal` / `comfortable` | 歌曲列表行的上下间距（0.85 / 1 / 1.15 倍） |
 | `progress` | `line` / `thick` | `thick` 时播放进度条与桌面音量条加粗一倍 |

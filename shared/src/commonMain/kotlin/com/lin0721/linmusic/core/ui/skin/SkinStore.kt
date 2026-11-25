@@ -3,6 +3,7 @@ package com.lin0721.linmusic.core.ui.skin
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
 import com.lin0721.linmusic.core.preferences.ThemeSettings
+import com.lin0721.linmusic.core.ui.font.FontStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -114,7 +115,8 @@ class SkinStore(
 // 当前生效的皮肤与皮肤管理：按当前深浅取对应槽位的皮肤，找不到、解析失败或不支持该模式时为 null 即内置主题
 class SkinRepository(
     private val store: SkinStore,
-    private val settingsPreferences: SettingsPreferences
+    private val settingsPreferences: SettingsPreferences,
+    private val fontStore: FontStore? = null
 ) {
     // 覆盖安装同 id 皮肤后 skinId 不变，靠 revision 触发重新读取
     private val revision = MutableStateFlow(0)
@@ -166,7 +168,14 @@ class SkinRepository(
 
     // 安装后应用到当前模式，皮肤不支持当前模式时只安装；失败返回 null
     suspend fun installAndApply(staged: StagedSkin, replace: Boolean, isDark: Boolean): Skin? {
-        val skin = withContext(Dispatchers.IO) { store.install(staged, replace) } ?: return null
+        val skin = withContext(Dispatchers.IO) {
+            val installed = store.install(staged, replace) ?: return@withContext null
+            val dir = installed.directory
+            if (dir != null && installed.style.fontFaces.isNotEmpty()) {
+                fontStore?.registerSkinFont(installed.id, installed.name, installed.style.fontFaces, dir)
+            }
+            installed
+        } ?: return null
         if (skin.supports(isDark)) settingsPreferences.saveThemeSkin(isDark, skin.id)
         invalidate()
         refreshInstalled()
@@ -184,7 +193,10 @@ class SkinRepository(
         if (isPreset(id)) return
         val settings = settingsPreferences.themeSettings.first()
         listOf(true, false).filter { settings.skinId(it) == id }.forEach { settingsPreferences.saveThemeSkin(it, BUILTIN_SKIN_ID) }
-        withContext(Dispatchers.IO) { store.delete(id) }
+        withContext(Dispatchers.IO) {
+            store.delete(id)
+            fontStore?.removeSkinFonts(id)
+        }
         refreshInstalled()
     }
 
