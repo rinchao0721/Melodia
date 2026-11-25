@@ -50,6 +50,7 @@ fun LocalTrackActionsHost(
     val userProfile by viewModel.userProfile.collectAsStateWithLifecycle()
     val likedSongIds by viewModel.likedSongIds.collectAsStateWithLifecycle()
     val collectState by viewModel.collectState.collectAsStateWithLifecycle()
+    val isLocalMode by viewModel.isLocalMode.collectAsStateWithLifecycle()
     val playlists by viewModel.playlists.collectAsStateWithLifecycle()
     val pickerTracks by viewModel.playlistPickerTracks.collectAsStateWithLifecycle()
     var deleteTarget by remember { mutableStateOf<LocalTrack?>(null) }
@@ -91,8 +92,12 @@ fun LocalTrackActionsHost(
                 onAddToPlayNext = { viewModel.addTrackToPlayNext(it) },
                 onToggleLike = { songId, like -> viewModel.toggleLikeSong(songId, like) },
                 onCollectClick = { songId ->
-                    collectSongId = songId
-                    viewModel.prepareCollectDialog(songId)
+                    if (isLocalMode) {
+                        viewModel.openPlaylistPicker(listOf(track))
+                    } else {
+                        collectSongId = songId
+                        viewModel.prepareCollectDialog(songId)
+                    }
                 },
                 onArtistClick = navigation.openOnlineArtist,
                 onAlbumClick = navigation.openOnlineAlbum,

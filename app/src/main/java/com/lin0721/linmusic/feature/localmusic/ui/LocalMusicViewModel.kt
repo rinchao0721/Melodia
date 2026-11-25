@@ -14,6 +14,7 @@ import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.player.QueueItem
 import com.lin0721.linmusic.core.songlike.LoadLikedSongIdsUseCase
 import com.lin0721.linmusic.core.songlike.SongLikeRepository
+import com.lin0721.linmusic.core.source.MusicPlatform
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectItem
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectState
 import com.lin0721.linmusic.feature.player.data.PlayerRepository
@@ -115,6 +116,11 @@ class LocalMusicViewModel(
 
     val userProfile: StateFlow<UserProfile?> = userPreferences.userProfile
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    // 本地模式下不能操作在线歌单，收藏入口改走本地歌单
+    val isLocalMode: StateFlow<Boolean> = userPreferences.currentPlatform
+        .map { it == MusicPlatform.LOCAL }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
     val likedSongIds: StateFlow<Set<Long>> = songLikeRepository.likedSongIds
 
