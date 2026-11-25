@@ -60,6 +60,7 @@ internal fun SearchResultRow(
     coverSize: Dp = 48.dp,
     highlighted: Boolean = false,
     leading: (@Composable (hovered: Boolean) -> Unit)? = null,
+    trailingAction: (@Composable (hovered: Boolean) -> Unit)? = null,
     trailingText: String? = null,
     onClick: (() -> Unit)? = null,
     onDoubleClick: (() -> Unit)? = null,
@@ -111,6 +112,7 @@ internal fun SearchResultRow(
                     Text(subtitle, color = DesktopColors.TextGray, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
+            trailingAction?.invoke(hovered)
             if (trailingText != null) {
                 Text(trailingText, color = DesktopColors.TextGray, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 16.dp))
             }

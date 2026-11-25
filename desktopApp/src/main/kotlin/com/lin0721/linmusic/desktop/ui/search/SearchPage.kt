@@ -36,6 +36,7 @@ import com.lin0721.linmusic.core.platform.ArtistId
 import com.lin0721.linmusic.core.platform.UnifiedTrack
 import com.lin0721.linmusic.core.platform.toDeterministicLegacyId
 import com.lin0721.linmusic.core.player.PlaybackController
+import com.lin0721.linmusic.core.playlistexternal.toPlaylistTrack
 import com.lin0721.linmusic.core.source.ExternalTrack
 import com.lin0721.linmusic.core.source.MusicPlatform
 import com.lin0721.linmusic.desktop.ui.components.HoverScrollbarBox
@@ -43,6 +44,7 @@ import com.lin0721.linmusic.desktop.ui.podcast.PodcastProgramRow
 import com.lin0721.linmusic.desktop.ui.shell.LocalDesktopNavigator
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import com.lin0721.linmusic.desktop.ui.track.TrackActions
+import com.lin0721.linmusic.desktop.ui.track.TrackLikeButton
 import com.lin0721.linmusic.desktop.ui.track.TrackRow
 import com.lin0721.linmusic.desktop.ui.track.rememberTrackActions
 import com.lin0721.linmusic.feature.search.domain.SearchResultItem
@@ -306,6 +308,7 @@ private fun ExternalResultEntry(
     actions: TrackActions
 ) {
     val onPlay = { viewModel.playExternalTrack(track) }
+    val asTrack = remember(track) { track.toPlaylistTrack() }
     SearchResultRow(
         coverUrl = track.coverUrl,
         title = track.name,
@@ -332,6 +335,7 @@ private fun ExternalResultEntry(
                 )
             }
         },
+        trailingAction = { hovered -> TrackLikeButton(asTrack, actions, hovered) },
         trailingText = if (track.durationMs > 0) formatDuration(track.durationMs) else null,
         onDoubleClick = onPlay,
         menu = { dismiss -> ExternalTrackMenuItems(track, viewModel, actions, onPlay, dismiss) }

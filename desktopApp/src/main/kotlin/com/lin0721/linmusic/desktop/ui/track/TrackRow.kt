@@ -185,7 +185,6 @@ fun TrackRow(
     // 右键菜单相对行底部的偏移，null 为关闭
     var contextMenuOffset by remember { mutableStateOf<DpOffset?>(null) }
     var moreMenuOpen by remember { mutableStateOf(false) }
-    val isLiked = actions != null && track.id in actions.likedSongIds
     val currentDragStart by rememberUpdatedState(reorder?.onDragStart)
     val currentDrag by rememberUpdatedState(reorder?.onDrag)
     val currentDragEnd by rememberUpdatedState(reorder?.onDragEnd)
@@ -345,50 +344,7 @@ fun TrackRow(
                 )
             }
             if (activeActions != null) {
-                val alwaysShowLiked = LocalAlwaysShowLikedBadge.current
-                var collectPopupOpen by remember(track.id) { mutableStateOf(false) }
-                // 开启“常驻显示已喜欢标记”时已喜欢常亮，关闭后仅悬停（或弹窗展开中）出现
-                val showLike = hovered || collectPopupOpen || (alwaysShowLiked && isLiked)
-                Box {
-                    HoverReveal(revealed = showLike, reserveSpace = true) {
-                        IconButton(
-                            onClick = {
-                                if (!navigator.hasCloudAccount) {
-                                    navigator.showMessage("请先登录账号")
-                                } else if (isLiked) {
-                                    activeActions.onPrepareCollect(track)
-                                    collectPopupOpen = true
-                                } else {
-                                    activeActions.onQuickLike(track)
-                                }
-                            },
-                            enabled = showLike,
-                            modifier = Modifier.size(32.dp)
-                        ) {
-                            Icon(
-                                if (isLiked) MelodiaIcons.CheckCircleFilled else MelodiaIcons.AddCircle,
-                                if (isLiked) "收藏到歌单" else "添加到“已点赞的歌曲”",
-                                tint = if (isLiked) DesktopColors.Accent else DesktopColors.TextGray,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-                    }
-                    if (collectPopupOpen) {
-                        CollectToPlaylistPopup(
-                            songId = track.id,
-                            state = activeActions.collectState,
-                            onSave = { items ->
-                                activeActions.onSaveCollect(track, items)
-                                collectPopupOpen = false
-                            },
-                            onCreate = { name ->
-                                activeActions.onCreateAndAdd(track, name)
-                                collectPopupOpen = false
-                            },
-                            onDismiss = { collectPopupOpen = false }
-                        )
-                    }
-                }
+                TrackLikeButton(track, activeActions, hovered)
             } else if (activeMenu != null) {
                 Spacer(Modifier.width(32.dp))
             }
@@ -679,5 +635,56 @@ private fun albumLink(
         }
     } else {
         append(track.al.name)
+    }
+}
+
+// 行尾加号：未喜欢时一键加入“已点赞的歌曲”，已喜欢时弹出收藏到歌单
+@Composable
+internal fun TrackLikeButton(track: Track, activeActions: TrackActions, hovered: Boolean) {
+    val navigator = LocalDesktopNavigator.current
+    val isLiked = track.id in activeActions.likedSongIds
+    val alwaysShowLiked = LocalAlwaysShowLikedBadge.current
+    var collectPopupOpen by remember(track.id) { mutableStateOf(false) }
+    // 开启“常驻显示已喜欢标记”时已喜欢常亮，关闭后仅悬停（或弹窗展开中）出现
+    val showLike = hovered || collectPopupOpen || (alwaysShowLiked && isLiked)
+    Box {
+        HoverReveal(revealed = showLike, reserveSpace = true) {
+            IconButton(
+                onClick = {
+                    if (!navigator.hasCloudAccount) {
+                        navigator.showMessage("请先登录账号")
+                    } else if (isLiked) {
+                        activeActions.onPrepareCollect(track)
+                        collectPopupOpen = true
+                    } else {
+                        activeActions.onQuickLike(track)
+                    }
+                },
+                enabled = showLike,
+                modifier = Modifier.size(32.dp)
+            ) {
+                Icon(
+                    if (isLiked) MelodiaIcons.CheckCircleFilled else MelodiaIcons.AddCircle,
+                    if (isLiked) "收藏到歌单" else "添加到“已点赞的歌曲”",
+                    tint = if (isLiked) DesktopColors.Accent else DesktopColors.TextGray,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+        }
+        if (collectPopupOpen) {
+            CollectToPlaylistPopup(
+                songId = track.id,
+                state = activeActions.collectState,
+                onSave = { items ->
+                    activeActions.onSaveCollect(track, items)
+                    collectPopupOpen = false
+                },
+                onCreate = { name ->
+                    activeActions.onCreateAndAdd(track, name)
+                    collectPopupOpen = false
+                },
+                onDismiss = { collectPopupOpen = false }
+            )
+        }
     }
 }
