@@ -94,7 +94,7 @@ fun HomeTabPills(
     Row(modifier.padding(horizontal = 24.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
         if (isKugouMode) {
             HomePill(text = "发现", selected = true, onClick = { onSelect(HOME_TAB_ALL) })
-        } else {
+        } else if (browsePlatform != MusicPlatform.LOCAL) {
             val labels = if (capabilities.supportsPodcast) HomeTabLabels else HomeTabLabels.take(2)
             labels.forEachIndexed { index, label ->
                 val joinsSecondary = index == HOME_TAB_MUSIC && secondaryMounted

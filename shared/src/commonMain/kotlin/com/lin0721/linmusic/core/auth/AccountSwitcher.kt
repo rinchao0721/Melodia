@@ -91,6 +91,23 @@ class AccountSwitcher(
         true
     }
 
+    // 进入本地模式：停播清队列、当前平台改为 LOCAL，保留所有已登录账号与各平台活跃账号
+    suspend fun enterLocalMode(): Boolean = switchMutex.withLock {
+        val previousPlatform = userPreferences.currentPlatform.first()
+        if (previousPlatform == MusicPlatform.LOCAL) return@withLock false
+        val previousAccountId = userPreferences.currentAccountId.first()
+        playbackControllerProvider()?.stopAndClearForAccountChange()
+        userPreferences.setCurrentPlatform(MusicPlatform.LOCAL)
+        AccountEvents.notifyPlatformSwitched(
+            platform = MusicPlatform.LOCAL,
+            previousAccountId = previousAccountId,
+            currentAccountId = null,
+            reason = AccountSwitchReason.SWITCHED
+        )
+        AppLogger.i(TAG, "已进入本地模式")
+        true
+    }
+
     // 退出指定账号；若为当前账号按 同平台最近账号 -> 另一平台账号 -> 网易游客 回落，返回退出后的当前账号
     suspend fun logout(accountId: AccountId): AccountId? = switchMutex.withLock {
         val target = userPreferences.allAccounts.first().firstOrNull { it.accountId == accountId }

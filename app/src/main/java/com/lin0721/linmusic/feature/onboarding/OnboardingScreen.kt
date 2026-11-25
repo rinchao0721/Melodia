@@ -1,5 +1,10 @@
 package com.lin0721.linmusic.feature.onboarding
 
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -71,16 +76,21 @@ private val FallbackTiles = listOf(
     Color(0xFF434343) to Color(0xFF1A1A1A)
 )
 
-// 首次启动页：登录网易云 / 登录酷狗 / 先逛逛
+// 首次启动页：模式选择（在线 / 本地）-> 平台选择（网易云 / 酷狗）
 @Composable
 fun OnboardingScreen() {
     val viewModel: OnboardingViewModel = koinViewModel()
     val covers by viewModel.covers.collectAsStateWithLifecycle()
     val busy by viewModel.busy.collectAsStateWithLifecycle()
 
+    var showPlatformStep by rememberSaveable { mutableStateOf(false) }
     var showNeteaseLogin by rememberSaveable { mutableStateOf(false) }
     var showNeteaseWebLogin by rememberSaveable { mutableStateOf(false) }
     var showKugouLogin by rememberSaveable { mutableStateOf(false) }
+
+    BackHandler(enabled = showPlatformStep) {
+        showPlatformStep = false
+    }
 
     LaunchedEffect(viewModel) {
         viewModel.toastEvent.collect { ToastManager.showToast(it) }
@@ -131,37 +141,77 @@ fun OnboardingScreen() {
                 textAlign = TextAlign.Center,
                 modifier = Modifier.padding(top = 4.dp, bottom = 12.dp)
             )
-            MelodiaButton(
-                onClick = { showNeteaseLogin = true },
-                enabled = !busy,
-                shape = CircleShape,
-                colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color.Black),
-                contentPadding = PaddingValues(horizontal = 16.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(50.dp)
-            ) {
-                PillLabel(text = "登录网易云音乐", dotColor = PlatformBrand.NeteaseRed)
-            }
-            MelodiaOutlinedButton(
-                onClick = { showKugouLogin = true },
-                enabled = !busy,
-                shape = CircleShape,
-                border = BorderStroke(1.dp, OutlineGray),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
-                contentPadding = PaddingValues(horizontal = 16.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(50.dp)
-            ) {
-                PillLabel(text = "登录酷狗音乐", dotColor = PlatformBrand.KugouBlue)
-            }
-            MelodiaTextButton(
-                onClick = viewModel::browseAsGuest,
-                enabled = !busy,
-                colors = ButtonDefaults.textButtonColors(contentColor = Color.White)
-            ) {
-                Text(text = "先逛逛", fontSize = 15.sp, fontWeight = FontWeight.Bold)
+            AnimatedContent(
+                targetState = showPlatformStep,
+                transitionSpec = { fadeIn() togetherWith fadeOut() },
+                label = "onboarding_step"
+            ) { isPlatformStep ->
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    if (!isPlatformStep) {
+                        MelodiaButton(
+                            onClick = { showPlatformStep = true },
+                            enabled = !busy,
+                            shape = CircleShape,
+                            colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color.Black),
+                            contentPadding = PaddingValues(horizontal = 16.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(50.dp)
+                        ) {
+                            Text(text = "在线", fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                        }
+                        MelodiaOutlinedButton(
+                            onClick = viewModel::enterLocalMode,
+                            enabled = !busy,
+                            shape = CircleShape,
+                            border = BorderStroke(1.dp, OutlineGray),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
+                            contentPadding = PaddingValues(horizontal = 16.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(50.dp)
+                        ) {
+                            Text(text = "本地", fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                        }
+                    } else {
+                        MelodiaButton(
+                            onClick = { showNeteaseLogin = true },
+                            enabled = !busy,
+                            shape = CircleShape,
+                            colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color.Black),
+                            contentPadding = PaddingValues(horizontal = 16.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(50.dp)
+                        ) {
+                            PillLabel(text = "登录网易云音乐", dotColor = PlatformBrand.NeteaseRed)
+                        }
+                        MelodiaOutlinedButton(
+                            onClick = { showKugouLogin = true },
+                            enabled = !busy,
+                            shape = CircleShape,
+                            border = BorderStroke(1.dp, OutlineGray),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
+                            contentPadding = PaddingValues(horizontal = 16.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(50.dp)
+                        ) {
+                            PillLabel(text = "登录酷狗音乐", dotColor = PlatformBrand.KugouBlue)
+                        }
+                        MelodiaTextButton(
+                            onClick = { showPlatformStep = false },
+                            enabled = !busy,
+                            colors = ButtonDefaults.textButtonColors(contentColor = Color.White)
+                        ) {
+                            Text(text = "返回", fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
             }
         }
 

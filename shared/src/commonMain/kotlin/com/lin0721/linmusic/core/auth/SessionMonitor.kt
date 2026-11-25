@@ -121,6 +121,7 @@ class SessionMonitor(
     // 未登录时的 301 只是功能需要登录，不是过期
     suspend fun handleUnauthorized(onExpired: suspend () -> Unit) {
         checkMutex.withLock {
+            if (userPreferences.currentPlatform.first() == MusicPlatform.LOCAL) return@withLock
             if (!isLoggedInLocally()) return@withLock
             if (isSessionInvalid()) {
                 expireLocked(onExpired)
@@ -131,6 +132,7 @@ class SessionMonitor(
     // 运行期酷狗业务接口返回显式 token 失效码时触发：先尝试静默续期，仅明确失效才踢号
     suspend fun handleKugouUnauthorized() {
         kugouCheckMutex.withLock {
+            if (userPreferences.currentPlatform.first() == MusicPlatform.LOCAL) return@withLock
             val now = nowMs()
             if (lastKugouUnauthorizedCheckMs > 0L && now - lastKugouUnauthorizedCheckMs < KUGOU_UNAUTHORIZED_COOLDOWN_MS) {
                 return@withLock
@@ -161,6 +163,7 @@ class SessionMonitor(
         onExpired: suspend () -> Unit,
         checkFallbackChain: Boolean
     ) {
+        if (userPreferences.currentPlatform.first() == MusicPlatform.LOCAL) return
         val visited = HashSet<Long>()
         repeat(UserPreferences.MAX_ACCOUNTS) {
             val activeUid = userPreferences.activeUid.first() ?: return
@@ -177,6 +180,7 @@ class SessionMonitor(
 
     // 启动时校验酷狗活跃账号：超 6 小时或首次校验刷新 token，并拉取最新资料/VIP；仅在明确 token 失效时移除酷狗账号，绝不影响网易云
     private suspend fun verifyKugouAtStartupLocked() {
+        if (userPreferences.currentPlatform.first() == MusicPlatform.LOCAL) return
         if (!isKugouEnabled()) return
         ensureKugouModeSynced()
         val provider = platformSessionRegistry?.providerOf(MusicPlatform.KUGOU) ?: return

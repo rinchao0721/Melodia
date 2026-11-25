@@ -99,6 +99,10 @@ sealed interface PendingAccountSwitch {
     data object ToGuest : PendingAccountSwitch {
         override val targetPlatform: MusicPlatform get() = MusicPlatform.NETEASE
     }
+
+    data object ToLocal : PendingAccountSwitch {
+        override val targetPlatform: MusicPlatform get() = MusicPlatform.LOCAL
+    }
 }
 
 // 账号菜单的切换动作：跨平台先弹确认，同平台直接切
@@ -114,6 +118,8 @@ class AccountSwitchController internal constructor(
     fun requestAccount(account: StoredAccount) = request(PendingAccountSwitch.ToAccount(account))
 
     fun requestGuest() = request(PendingAccountSwitch.ToGuest)
+
+    fun requestLocal() = request(PendingAccountSwitch.ToLocal)
 
     fun confirm() {
         val target = pending ?: return
@@ -146,6 +152,11 @@ class AccountSwitchController internal constructor(
                         ToastManager.showToast("已切换为网易云游客")
                     }
                 }
+                PendingAccountSwitch.ToLocal -> {
+                    if (accountSwitcher.enterLocalMode()) {
+                        ToastManager.showToast("已进入本地模式")
+                    }
+                }
             }
         }
     }
@@ -168,6 +179,7 @@ fun AccountSwitchConfirmDialog(controller: AccountSwitchController) {
     val targetName = when (target) {
         is PendingAccountSwitch.ToAccount -> "${PlatformBrand.label(target.account.platform)} · ${target.account.displayName()}"
         PendingAccountSwitch.ToGuest -> "网易云 · 游客"
+        PendingAccountSwitch.ToLocal -> "本地模式"
     }
     AlertDialog(
         onDismissRequest = controller::cancel,

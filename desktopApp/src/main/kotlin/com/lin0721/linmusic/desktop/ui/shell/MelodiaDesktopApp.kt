@@ -409,9 +409,9 @@ fun WindowScope.MelodiaDesktopApp(
                         state.kugouLoginAddAccount = false
                         state.showKugouLogin = true
                     },
-                    onBrowseAsGuest = {
+                    onEnterLocal = {
                         appScope.launch {
-                            deps.accountSwitcher.browseAsGuest()
+                            deps.accountSwitcher.enterLocalMode()
                             deps.userPreferences.setOnboardingCompleted()
                         }
                     },

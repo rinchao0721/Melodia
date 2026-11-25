@@ -46,6 +46,7 @@ internal const val TAB_PODCAST = 2
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun HomeScreen(
+    onOpenLocalMusic: () -> Unit = {},
     viewModel: HomeViewModel = koinViewModel(),
     musicViewModel: MusicViewModel = koinViewModel(),
     podcastViewModel: PodcastHomeViewModel = koinViewModel(),
@@ -140,8 +141,11 @@ fun HomeScreen(
         }
     }
 
+    // 酷狗与本地模式只有「发现/全部」一页
+    val singleFeed = browsePlatform == MusicPlatform.KUGOU || browsePlatform == MusicPlatform.LOCAL
+
     LaunchedEffect(browsePlatform) {
-        if (browsePlatform == MusicPlatform.KUGOU && (selectedTab != TAB_ALL || showNewWorksFeed)) {
+        if (singleFeed && (selectedTab != TAB_ALL || showNewWorksFeed)) {
             onTabSelected(TAB_ALL)
             onShowNewWorksFeedChanged(false)
         }
@@ -149,7 +153,7 @@ fun HomeScreen(
 
     // 各 tab 的数据都等真正切过去才拉，避免拖慢「全部」的首屏
     LaunchedEffect(selectedTab, browsePlatform) {
-        if (browsePlatform == MusicPlatform.KUGOU) return@LaunchedEffect
+        if (singleFeed) return@LaunchedEffect
         when (selectedTab) {
             TAB_MUSIC -> musicViewModel.loadIfNeeded()
             TAB_PODCAST -> podcastViewModel.loadIfNeeded()
@@ -157,7 +161,7 @@ fun HomeScreen(
     }
 
     LaunchedEffect(showNewWorksFeed, browsePlatform) {
-        if (browsePlatform != MusicPlatform.KUGOU && showNewWorksFeed) newWorksViewModel.loadIfNeeded()
+        if (!singleFeed && showNewWorksFeed) newWorksViewModel.loadIfNeeded()
     }
 
     // 未登录也打开侧栏，侧栏里提供登录与设置入口
@@ -177,7 +181,7 @@ fun HomeScreen(
                 secondarySelected = showNewWorksFeed,
                 onSecondarySelected = { onShowNewWorksFeedChanged(true) },
                 onAvatarClick = onAvatarClick,
-                showSearchButton = showSearchButton,
+                showSearchButton = showSearchButton && browsePlatform != MusicPlatform.LOCAL,
                 onSearchClick = onSearchClick,
                 browsePlatform = browsePlatform,
                 kugouAvatarUrl = kugouAccount?.avatarUrl
@@ -185,7 +189,7 @@ fun HomeScreen(
 
             Box(modifier = Modifier.weight(1f)) {
                 when {
-                    browsePlatform != MusicPlatform.KUGOU && selectedTab == TAB_MUSIC && showNewWorksFeed -> NewWorksFeedContent(
+                    !singleFeed && selectedTab == TAB_MUSIC && showNewWorksFeed -> NewWorksFeedContent(
                         uiState = newWorksUiState,
                         collectState = newWorksCollectState,
                         importState = newWorksImportState,
@@ -208,14 +212,14 @@ fun HomeScreen(
                         }
                     )
 
-                    browsePlatform != MusicPlatform.KUGOU && selectedTab == TAB_MUSIC -> MusicContent(
+                    !singleFeed && selectedTab == TAB_MUSIC -> MusicContent(
                         uiState = musicUiState,
                         onStyleClick = onStyleClick,
                         onRequestStyleCover = musicViewModel::requestStyleCover,
                         onRetry = { musicViewModel.loadStyles() }
                     )
 
-                    browsePlatform != MusicPlatform.KUGOU && selectedTab == TAB_PODCAST -> PodcastHomeContent(
+                    !singleFeed && selectedTab == TAB_PODCAST -> PodcastHomeContent(
                         state = podcastState,
                         actions = remember(podcastViewModel, onRadioClick, onPodcastSubscribedClick, onPodcastToplistClick, onPodcastCategoryClick) {
                             PodcastHomeActions(
@@ -255,6 +259,7 @@ fun HomeScreen(
                         }
                         HomeContent(
                             uiState = uiState,
+                            onOpenLocalMusic = onOpenLocalMusic,
                             sections = sections,
                             isRefreshing = isRefreshing,
                             onRefresh = { viewModel.refreshHomeData() },

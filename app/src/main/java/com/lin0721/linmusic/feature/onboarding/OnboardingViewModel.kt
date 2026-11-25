@@ -41,12 +41,12 @@ class OnboardingViewModel(
         if (covers.isNotEmpty()) _covers.value = covers
     }
 
-    fun browseAsGuest() {
+    fun enterLocalMode() {
         if (_busy.value) return
         _busy.value = true
         viewModelScope.launch {
             try {
-                accountSwitcher.browseAsGuest()
+                accountSwitcher.enterLocalMode()
                 userPreferences.setOnboardingCompleted()
             } finally {
                 _busy.value = false

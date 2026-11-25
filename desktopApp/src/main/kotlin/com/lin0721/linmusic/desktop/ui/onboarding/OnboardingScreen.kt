@@ -1,5 +1,9 @@
 package com.lin0721.linmusic.desktop.ui.onboarding
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -25,7 +29,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -62,12 +68,13 @@ fun WindowScope.OnboardingScreen(
     isMaximized: Boolean,
     onLoginNetease: () -> Unit,
     onLoginKugou: () -> Unit,
-    onBrowseAsGuest: () -> Unit,
+    onEnterLocal: () -> Unit,
     onMinimize: () -> Unit,
     onToggleMaximize: () -> Unit,
     onClose: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    var showPlatformStep by remember { mutableStateOf(false) }
     Box(modifier.fillMaxSize().background(Color.Black)) {
         CoverCollage(coverUrls, Modifier.fillMaxSize())
         Box(
@@ -109,15 +116,31 @@ fun WindowScope.OnboardingScreen(
                 textAlign = TextAlign.Center,
                 modifier = Modifier.padding(top = 6.dp, bottom = 12.dp)
             )
-            OnboardingPill("登录网易云音乐", MusicPlatform.NETEASE, solid = true, onClick = onLoginNetease)
-            OnboardingPill("登录酷狗音乐", MusicPlatform.KUGOU, solid = false, onClick = onLoginKugou)
-            GuestButton(onBrowseAsGuest)
+            AnimatedContent(
+                targetState = showPlatformStep,
+                transitionSpec = { fadeIn() togetherWith fadeOut() },
+                label = "onboarding_step"
+            ) { isPlatformStep ->
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    if (!isPlatformStep) {
+                        OnboardingPill("在线", platform = null, solid = true, onClick = { showPlatformStep = true })
+                        OnboardingPill("本地", platform = null, solid = false, onClick = onEnterLocal)
+                    } else {
+                        OnboardingPill("登录网易云音乐", MusicPlatform.NETEASE, solid = true, onClick = onLoginNetease)
+                        OnboardingPill("登录酷狗音乐", MusicPlatform.KUGOU, solid = false, onClick = onLoginKugou)
+                        TextButton("返回") { showPlatformStep = false }
+                    }
+                }
+            }
         }
     }
 }
 
 @Composable
-private fun OnboardingPill(text: String, platform: MusicPlatform, solid: Boolean, onClick: () -> Unit) {
+private fun OnboardingPill(text: String, platform: MusicPlatform?, solid: Boolean, onClick: () -> Unit) {
     val source = remember { MutableInteractionSource() }
     val hovered by source.collectIsHoveredAsState()
     val shape = RoundedCornerShape(50)
@@ -137,7 +160,9 @@ private fun OnboardingPill(text: String, platform: MusicPlatform, solid: Boolean
             .clickable(interactionSource = source, indication = null, onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
-        PlatformBrandDot(platform, 16.dp, Modifier.align(Alignment.CenterStart).padding(start = 18.dp))
+        if (platform != null) {
+            PlatformBrandDot(platform, 16.dp, Modifier.align(Alignment.CenterStart).padding(start = 18.dp))
+        }
         Text(
             text,
             color = if (solid) Color.Black else Color.White,
@@ -148,11 +173,11 @@ private fun OnboardingPill(text: String, platform: MusicPlatform, solid: Boolean
 }
 
 @Composable
-private fun GuestButton(onClick: () -> Unit) {
+private fun TextButton(text: String, onClick: () -> Unit) {
     val source = remember { MutableInteractionSource() }
     val hovered by source.collectIsHoveredAsState()
     Text(
-        "先逛逛",
+        text,
         color = if (hovered) Color.White else Color.White.copy(alpha = 0.85f),
         fontSize = 14.sp,
         fontWeight = FontWeight.Bold,

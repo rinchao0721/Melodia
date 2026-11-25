@@ -100,6 +100,8 @@ import com.lin0721.linmusic.desktop.ui.palette.extractCoverPaletteFromUrl
 import com.lin0721.linmusic.desktop.ui.palette.headerCoverBackground
 import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.source.MusicPlatform
+import com.lin0721.linmusic.desktop.data.local.LOCAL_ALL_TRACKS_ID
+import com.lin0721.linmusic.desktop.ui.components.DialogButton
 import com.lin0721.linmusic.desktop.ui.playlist.DAILY_RECOMMEND_ID
 import com.lin0721.linmusic.desktop.ui.playlist.DAILY_RECOMMEND_NAME
 import com.lin0721.linmusic.feature.playlist.ui.KUGOU_DAILY_RECOMMEND_ID
@@ -259,20 +261,22 @@ fun HomePage(
         }
     }
 
+    // 酷狗与本地模式只有「发现/全部」一页
+    val singleFeed = browsePlatform == MusicPlatform.KUGOU || browsePlatform == MusicPlatform.LOCAL
     LaunchedEffect(browsePlatform) {
-        if (browsePlatform == MusicPlatform.KUGOU && selectedTab != HOME_TAB_ALL) {
+        if (singleFeed && selectedTab != HOME_TAB_ALL) {
             onTabSelected(HOME_TAB_ALL)
         }
     }
     LaunchedEffect(selectedTab, browsePlatform) {
-        if (browsePlatform == MusicPlatform.KUGOU) return@LaunchedEffect
+        if (singleFeed) return@LaunchedEffect
         when (selectedTab) {
             HOME_TAB_MUSIC -> musicViewModel.loadIfNeeded()
             HOME_TAB_PODCAST -> podcastViewModel.loadIfNeeded()
         }
     }
     LaunchedEffect(selectedTab, newWorksSelected, browsePlatform) {
-        if (browsePlatform != MusicPlatform.KUGOU && selectedTab == HOME_TAB_MUSIC && newWorksSelected) {
+        if (!singleFeed && selectedTab == HOME_TAB_MUSIC && newWorksSelected) {
             newWorksViewModel.loadIfNeeded()
         }
     }
@@ -394,7 +398,34 @@ private fun HomeAllContent(
     when (val state = uiState) {
         HomeUiState.Loading -> HomeTabLoading()
         is HomeUiState.Error -> HomeTabError(state.message, viewModel::refreshHomeData)
-        is HomeUiState.Success -> HomeFeed(state.data, viewModel, listState, onPlaylistClick, onTileHover, Modifier)
+        is HomeUiState.Success -> if (state.data.browsePlatform == MusicPlatform.LOCAL) {
+            val navigator = LocalDesktopNavigator.current
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text(
+                        "本地模式",
+                        color = DesktopColors.TextPrimary,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        "当前处于完全离线状态，仅展示本地音乐与已下载内容",
+                        color = DesktopColors.TextGray,
+                        fontSize = 13.sp
+                    )
+                    DialogButton(
+                        text = "打开本地音乐",
+                        onClick = { navigator.openPlaylist(LOCAL_ALL_TRACKS_ID, "全部本地歌曲") },
+                        primary = true
+                    )
+                }
+            }
+        } else {
+            HomeFeed(state.data, viewModel, listState, onPlaylistClick, onTileHover, Modifier)
+        }
     }
 }
 

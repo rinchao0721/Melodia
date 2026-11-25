@@ -80,6 +80,7 @@ internal fun WindowScope.AppTitleBar(
         addableAccountPlatforms(allAccounts, kugouPlatformEnabled)
     }
     var pendingSwitch by remember { mutableStateOf<AccountMenuEntry?>(null) }
+    var pendingEnterLocal by remember { mutableStateOf(false) }
     val performSwitch: (AccountMenuEntry) -> Unit = { entry ->
         accountScope.launch {
             val accountId = entry.accountId
@@ -257,7 +258,9 @@ internal fun WindowScope.AppTitleBar(
             }
         },
         canOpenProfile = currentPlatform == MusicPlatform.NETEASE && userProfile != null,
-        canOpenRecent = currentAccountId != null,
+        canOpenRecent = currentPlatform != MusicPlatform.LOCAL && currentAccountId != null,
+        isLocalMode = currentPlatform == MusicPlatform.LOCAL,
+        onEnterLocalMode = { pendingSwitch = null; pendingEnterLocal = true },
         hideMessagesButton = !capabilities.supportsPrivateMessage,
         onProfileClick = { userProfile?.let { state.navigate(DesktopRoute.Profile(it.uid)) } },
         onRecentClick = { state.navigate(DesktopRoute.RecentPlay) },
@@ -281,6 +284,27 @@ internal fun WindowScope.AppTitleBar(
                 DialogButton("切换", {
                     pendingSwitch = null
                     performSwitch(entry)
+                }, primary = true)
+            }
+        ) {
+            Text("切换后将清空当前播放队列", color = DesktopColors.TextGray, fontSize = 13.sp)
+        }
+    }
+
+    if (pendingEnterLocal) {
+        DesktopDialog(
+            title = "切换到本地模式",
+            onDismiss = { pendingEnterLocal = false },
+            width = 340.dp,
+            actions = {
+                DialogButton("取消", { pendingEnterLocal = false })
+                DialogButton("切换", {
+                    pendingEnterLocal = false
+                    accountScope.launch {
+                        if (deps.accountSwitcher.enterLocalMode()) {
+                            state.showMessage("已进入本地模式")
+                        }
+                    }
                 }, primary = true)
             }
         ) {

@@ -2,6 +2,7 @@ package com.lin0721.linmusic.desktop.ui.onboarding
 
 import androidx.compose.ui.unit.dp
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -38,5 +39,15 @@ class OnboardingScreenTest {
         assertEquals(9, collageColumns(1200.dp, 132.dp))
         assertEquals(16, collageColumns(10000.dp, 132.dp))
         assertEquals(6, collageRows(700.dp, 138.dp))
+    }
+
+    @Test
+    fun twoStepStateTogglesBetweenModeAndPlatform() {
+        var showPlatformStep = false
+        assertFalse(showPlatformStep)
+        showPlatformStep = true
+        assertTrue(showPlatformStep)
+        showPlatformStep = false
+        assertFalse(showPlatformStep)
     }
 }

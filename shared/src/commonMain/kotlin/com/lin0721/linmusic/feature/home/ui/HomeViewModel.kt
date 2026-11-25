@@ -236,8 +236,10 @@ class HomeViewModel(
             }
         }
         viewModelScope.launch {
-            userProfile.collectLatest { profile ->
-                if (profile != null) {
+            combine(userProfile, userPreferences.currentPlatform) { profile, platform ->
+                profile to (platform == MusicPlatform.LOCAL)
+            }.distinctUntilChanged().collectLatest { (profile, isLocal) ->
+                if (profile != null && !isLocal) {
                     loadLikedSongIdsUseCase()
                     userPlaylistRepository.getUserPlaylists(profile.uid).collect { result ->
                         result.getOrNull()?.let { list ->
@@ -258,7 +260,11 @@ class HomeViewModel(
         }
         viewModelScope.launch {
             AccountEvents.platformSwitched.collect { event ->
-                if (event.platform == MusicPlatform.KUGOU && resolveEffectiveBrowsePlatform() == MusicPlatform.KUGOU) {
+                if (event.platform == MusicPlatform.LOCAL) {
+                    loadHomeData(refresh = false)
+                } else if (event.platform == MusicPlatform.KUGOU && resolveEffectiveBrowsePlatform() == MusicPlatform.KUGOU) {
+                    loadHomeData(refresh = true)
+                } else if (event.platform == MusicPlatform.NETEASE && resolveEffectiveBrowsePlatform() == MusicPlatform.NETEASE) {
                     loadHomeData(refresh = true)
                 }
             }
@@ -267,6 +273,7 @@ class HomeViewModel(
 
     private suspend fun resolveEffectiveBrowsePlatform(): MusicPlatform {
         val raw = userPreferences.currentPlatform.first()
+        if (raw == MusicPlatform.LOCAL) return MusicPlatform.LOCAL
         val kugouEnabled = settingsPreferences.kugouPlatformEnabled.first()
         return if (raw == MusicPlatform.KUGOU && kugouEnabled) MusicPlatform.KUGOU else MusicPlatform.NETEASE
     }
@@ -345,7 +352,13 @@ class HomeViewModel(
     }
 
     // 货架序列是整页主数据源，它失败才算整页失败；其余几项各自兜底不影响渲染
-    private suspend fun fetchHomeFeedData(refresh: Boolean): Result<HomeFeedData> = try {
+    private suspend fun fetchHomeFeedData(refresh: Boolean): Result<HomeFeedData> {
+        val isLocal = runCatchingCancellable { resolveEffectiveBrowsePlatform() == MusicPlatform.LOCAL }.getOrDefault(false)
+        if (isLocal) return Result.success(HomeFeedData(browsePlatform = MusicPlatform.LOCAL))
+        return fetchOnlineHomeFeedData(refresh)
+    }
+
+    private suspend fun fetchOnlineHomeFeedData(refresh: Boolean): Result<HomeFeedData> = try {
         val targetPlatform = resolveEffectiveBrowsePlatform()
         val discoverRouter = platformDiscoverRouter
         if (targetPlatform == MusicPlatform.KUGOU && discoverRouter != null) {
@@ -941,10 +954,10 @@ class HomeViewModel(
     }
 
     private fun buildHomeSections(data: HomeFeedData, showRecentPlay: Boolean): List<HomeSection> {
-        return if (data.browsePlatform == MusicPlatform.KUGOU) {
-            buildKugouSections(data)
-        } else {
-            buildNeteaseSections(data, showRecentPlay)
+        return when (data.browsePlatform) {
+            MusicPlatform.LOCAL -> emptyList()
+            MusicPlatform.KUGOU -> buildKugouSections(data)
+            else -> buildNeteaseSections(data, showRecentPlay)
         }
     }
 

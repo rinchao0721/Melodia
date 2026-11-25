@@ -943,6 +943,7 @@ fun MelodiaApp() {
                     alpha = 0.5f + (0.5f * sidebar.progress)
                 }
         ) {
+            val isLocalMode = browsePlatform == com.lin0721.linmusic.core.source.MusicPlatform.LOCAL
             val kugouActive = isKugouEnabled && kugouAccount != null
             val isKugouBrowseMode = isKugouEnabled && browsePlatform == com.lin0721.linmusic.core.source.MusicPlatform.KUGOU
             ProfileSidebar(
@@ -951,10 +952,12 @@ fun MelodiaApp() {
                 currentAccountId = currentAccountId,
                 // 无活跃网易账号即可切回网易游客
                 showGuestEntry = userProfile == null,
-                showMessageSection = sidebarMessageEnabled && platformCapabilities.supportsPrivateMessage,
+                showMessageSection = !isLocalMode && sidebarMessageEnabled && platformCapabilities.supportsPrivateMessage,
                 showListenDataEntry = browsePlatform == com.lin0721.linmusic.core.source.MusicPlatform.NETEASE,
-                canOpenRecentPlay = userProfile != null || (isKugouBrowseMode && kugouActive),
-                canOpenCloud = userProfile != null || kugouActive,
+                canOpenRecentPlay = !isLocalMode && (userProfile != null || (isKugouBrowseMode && kugouActive)),
+                canOpenCloud = !isLocalMode && (userProfile != null || kugouActive),
+                isLocalMode = isLocalMode,
+                onSelectLocal = accountSwitchController::requestLocal,
                 privateUnreadCount = privateUnreadCount,
                 conversationPreview = conversationPreview,
                 onDismissUnread = { privateUnreadMonitor.markAllRead() },

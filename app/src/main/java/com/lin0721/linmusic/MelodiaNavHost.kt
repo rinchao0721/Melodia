@@ -162,6 +162,7 @@ fun MelodiaNavHost(
                         onCloudClick = { onNavigateToScreen(Screen.Cloud) },
                         onOpenSidebar = onOpenSidebar,
                         onOpenPlayer = onOpenPlayer,
+                        onOpenLocalMusic = onNavigateToLocalMusic,
                         onLoginScreenVisibilityChanged = onLoginScreenVisibilityChanged
                     )
                 }

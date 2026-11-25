@@ -52,6 +52,7 @@ import com.lin0721.linmusic.feature.home.domain.HomeCardTarget
 import com.lin0721.linmusic.feature.home.domain.HomeSection
 import com.lin0721.linmusic.feature.home.domain.HomeShelf
 import com.lin0721.linmusic.feature.home.domain.ToplistInfo
+import com.lin0721.linmusic.feature.home.ui.HomeUiState
 import com.lin0721.linmusic.feature.home.ui.HomeViewModel
 import com.lin0721.linmusic.feature.playlist.domain.CreatePlaylistAndAddSongUseCase
 import com.lin0721.linmusic.feature.playlist.domain.FakeCreateRepository
@@ -179,6 +180,33 @@ class HomeSectionsTest {
         // 验证统一打开目标
         val target = vm.openTargetOf(shelf.cards.single())
         assertEquals(HomeCardTarget.PlaylistEntity("101", "私人雷达", isAlbum = false), target)
+    }
+
+    @Test
+    fun `本地模式首页不请求任何推荐接口`() = runTest(scheduler) {
+        val prefs = UserPreferences(InMemoryPreferencesStore())
+        prefs.setCurrentPlatform(MusicPlatform.LOCAL)
+        val settings = SettingsPreferences(InMemoryPreferencesStore())
+        val playbackPrefs = PlaybackPreferences(InMemoryPreferencesStore())
+        var homeCalls = 0
+        val neteaseRepo = object : SimpleHomeRepo() {
+            override fun getHomeBlockPage(refresh: Boolean, cursor: String): kotlinx.coroutines.flow.Flow<Result<HomeBlockPage>> {
+                homeCalls++
+                return super.getHomeBlockPage(refresh, cursor)
+            }
+            override fun getDailyRecommendSongs(): kotlinx.coroutines.flow.Flow<Result<List<DailySong>>> {
+                homeCalls++
+                return super.getDailyRecommendSongs()
+            }
+        }
+
+        val vm = buildHomeViewModel(prefs, settings, playbackPrefs, RecordingPlaybackController(), homeRepository = neteaseRepo)
+        scheduler.advanceUntilIdle()
+
+        val state = vm.uiState.value as HomeUiState.Success
+        assertEquals(MusicPlatform.LOCAL, state.data.browsePlatform)
+        assertEquals(0, homeCalls)
+        assertTrue(vm.sections.value.isEmpty())
     }
 
     @Test

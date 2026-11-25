@@ -63,6 +63,15 @@ class RecentPlayViewModel(
             _uiState.value = RecentPlayUiState.Loading
 
             val platform = currentPlatform()
+            if (platform == MusicPlatform.LOCAL) {
+                _uiState.value = RecentPlayUiState.Success(
+                    songs = emptyList(),
+                    playlists = emptyList(),
+                    albums = emptyList(),
+                    platform = MusicPlatform.LOCAL
+                )
+                return@launch
+            }
             val isKugou = platform == MusicPlatform.KUGOU
             val kugouAccount = if (isKugou) activeKugouAccount() else null
 

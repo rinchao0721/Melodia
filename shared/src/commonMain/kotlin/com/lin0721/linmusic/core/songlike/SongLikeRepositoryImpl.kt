@@ -72,7 +72,10 @@ class SongLikeRepositoryImpl(
         }
         if (kugouLikeService != null && userPreferences != null) {
             scope.launch {
-                if (isKugouEnabled() && userPreferences.activeAccountOf(MusicPlatform.KUGOU).first() != null) {
+                if (userPreferences.currentPlatform.first() != MusicPlatform.LOCAL &&
+                    isKugouEnabled() &&
+                    userPreferences.activeAccountOf(MusicPlatform.KUGOU).first() != null
+                ) {
                     syncKugouLikedTracks().first()
                 }
             }

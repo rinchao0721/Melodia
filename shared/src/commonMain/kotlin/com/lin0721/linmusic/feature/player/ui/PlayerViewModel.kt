@@ -950,6 +950,10 @@ class PlayerViewModel(
     fun startPersonalFm(mode: PersonalFmMode? = null) {
         viewModelScope.launch {
             val targetPlatform = resolveEffectiveBrowsePlatform()
+            if (targetPlatform == MusicPlatform.LOCAL) {
+                _toastEvent.emit("本地模式下不可用")
+                return@launch
+            }
             if (targetPlatform == MusicPlatform.KUGOU && platformDiscoverRouter != null) {
                 if (userPreferences.activeAccountOf(MusicPlatform.KUGOU).first() == null) {
                     _toastEvent.emit("请先登录酷狗账号")

@@ -139,6 +139,7 @@ class UserPreferences(
         val stored = prefs[KEY_CURRENT_BROWSE_PLATFORM]?.let(MusicPlatform::fromKey) ?: MusicPlatform.NETEASE
         val active = resolveActiveAccountsByPlatform(prefs, accounts)
         val resolved = when {
+            stored == MusicPlatform.LOCAL -> stored
             stored in active -> stored
             accounts.any { it.platform == stored } -> stored
             else -> accounts.maxByOrNull { it.lastUsedAt }?.platform ?: MusicPlatform.NETEASE

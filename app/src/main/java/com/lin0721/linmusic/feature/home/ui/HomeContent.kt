@@ -1,7 +1,17 @@
 package com.lin0721.linmusic.feature.home.ui
 
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Text
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
+import com.lin0721.linmusic.core.ui.components.MelodiaButton
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -31,6 +41,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 @Composable
 fun HomeContent(
     uiState: HomeUiState,
+    onOpenLocalMusic: () -> Unit = {},
     sections: List<HomeSection>,
     isRefreshing: Boolean,
     onRefresh: () -> Unit,
@@ -78,75 +89,101 @@ fun HomeContent(
 
                         is HomeUiState.Success -> {
                             val data = uiState.data
-
-                            items(
-                                items = sections,
-                                key = { it.key }
-                            ) { section ->
-                                when (section) {
-                                    is HomeSection.Quick -> {
-                                        RecentPlaySection(
-                                            items = section.items,
-                                            isPersonalFm = isPersonalFm,
-                                            onClick = onQuickCardClick,
-                                            modifier = Modifier.animateItem(fadeInSpec = null, fadeOutSpec = null)
+                            if (data.browsePlatform == MusicPlatform.LOCAL) {
+                                item {
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 24.dp, vertical = 64.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                                    ) {
+                                        Text(
+                                            text = "本地模式",
+                                            color = MelodiaColors.TextPrimary,
+                                            fontSize = 20.sp,
+                                            fontWeight = FontWeight.Bold
                                         )
-                                    }
-
-                                    is HomeSection.Daily -> {
-                                        val dailySongs = remember(section.items, data.dailySongs, section.platform) {
-                                            if (section.platform == MusicPlatform.NETEASE && data.dailySongs.isNotEmpty()) {
-                                                data.dailySongs
-                                            } else {
-                                                section.items.mapIndexed { index, card ->
-                                                    DailySong(
-                                                        id = card.entityId.toLongOrNull() ?: index.toLong(),
-                                                        name = card.title
-                                                    )
-                                                }
-                                            }
+                                        Text(
+                                            text = "当前处于完全离线状态，仅展示本地音乐与已下载内容",
+                                            color = MelodiaColors.TextSecondary,
+                                            fontSize = 13.sp
+                                        )
+                                        MelodiaButton(onClick = onOpenLocalMusic) {
+                                            Text("打开本地音乐")
                                         }
-                                        HomeHighlightsSection(
-                                            modifier = Modifier.animateItem(fadeInSpec = null, fadeOutSpec = null),
-                                            dailySongs = dailySongs,
-                                            toplists = data.toplistItems,
-                                            recommendPlaylists = data.recommendPlaylists,
-                                            personalFmMode = personalFmMode,
-                                            fmCoverUrls = fmCoverUrls,
-                                            isFmPlaying = isFmPlaying,
-                                            roamingCoverUrl = roamingCoverUrl,
-                                            hotTopCoverUrl = hotTopCoverUrl,
-                                            isRoamingPlaying = isRoamingPlaying,
-                                            onDailyOpen = { onDailyOpen(section.platform) },
-                                            onDailyPlay = onDailyPlay,
-                                            onHotlistClick = { onPlaylistClick(it, false) },
-                                            onPersonalFmClick = onPersonalFmClick,
-                                            onRadarClick = { onPlaylistClick(it, false) },
-                                            onRoamingClick = onRoamingClick,
-                                            showForYou = showForYou && section.platform == MusicPlatform.NETEASE
-                                        )
-                                    }
-
-                                    is HomeSection.Shelf -> {
-                                        HomeShelfSection(
-                                            shelf = section,
-                                            modifier = Modifier.animateItem(fadeInSpec = null, fadeOutSpec = null),
-                                            onCardClick = { card ->
-                                                if (card.kind == HomeCardKind.SONG || card.kind == HomeCardKind.VOICE) {
-                                                    onShelfCardPlay(section, card)
-                                                } else {
-                                                    onShelfCardClick(section, card)
-                                                }
-                                            },
-                                            onCardPlay = { card -> onShelfCardPlay(section, card) },
-                                            onCardPlayNext = onShelfCardPlayNext
-                                        )
                                     }
                                 }
-                            }
+                            } else {
+                                items(
+                                    items = sections,
+                                    key = { it.key }
+                                ) { section ->
+                                    when (section) {
+                                        is HomeSection.Quick -> {
+                                            RecentPlaySection(
+                                                items = section.items,
+                                                isPersonalFm = isPersonalFm,
+                                                onClick = onQuickCardClick,
+                                                modifier = Modifier.animateItem(fadeInSpec = null, fadeOutSpec = null)
+                                            )
+                                        }
 
-                            if (data.isLoadingMore) {
-                                item { HomeShelfLoadingMore() }
+                                        is HomeSection.Daily -> {
+                                            val dailySongs = remember(section.items, data.dailySongs, section.platform) {
+                                                if (section.platform == MusicPlatform.NETEASE && data.dailySongs.isNotEmpty()) {
+                                                    data.dailySongs
+                                                } else {
+                                                    section.items.mapIndexed { index, card ->
+                                                        DailySong(
+                                                            id = card.entityId.toLongOrNull() ?: index.toLong(),
+                                                            name = card.title
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                            HomeHighlightsSection(
+                                                modifier = Modifier.animateItem(fadeInSpec = null, fadeOutSpec = null),
+                                                dailySongs = dailySongs,
+                                                toplists = data.toplistItems,
+                                                recommendPlaylists = data.recommendPlaylists,
+                                                personalFmMode = personalFmMode,
+                                                fmCoverUrls = fmCoverUrls,
+                                                isFmPlaying = isFmPlaying,
+                                                roamingCoverUrl = roamingCoverUrl,
+                                                hotTopCoverUrl = hotTopCoverUrl,
+                                                isRoamingPlaying = isRoamingPlaying,
+                                                onDailyOpen = { onDailyOpen(section.platform) },
+                                                onDailyPlay = onDailyPlay,
+                                                onHotlistClick = { onPlaylistClick(it, false) },
+                                                onPersonalFmClick = onPersonalFmClick,
+                                                onRadarClick = { onPlaylistClick(it, false) },
+                                                onRoamingClick = onRoamingClick,
+                                                showForYou = showForYou && section.platform == MusicPlatform.NETEASE
+                                            )
+                                        }
+
+                                        is HomeSection.Shelf -> {
+                                            HomeShelfSection(
+                                                shelf = section,
+                                                modifier = Modifier.animateItem(fadeInSpec = null, fadeOutSpec = null),
+                                                onCardClick = { card ->
+                                                    if (card.kind == HomeCardKind.SONG || card.kind == HomeCardKind.VOICE) {
+                                                        onShelfCardPlay(section, card)
+                                                    } else {
+                                                        onShelfCardClick(section, card)
+                                                    }
+                                                },
+                                                onCardPlay = { card -> onShelfCardPlay(section, card) },
+                                                onCardPlayNext = onShelfCardPlayNext
+                                            )
+                                        }
+                                    }
+                                }
+
+                                if (data.isLoadingMore) {
+                                    item { HomeShelfLoadingMore() }
+                                }
                             }
                         }
                     }

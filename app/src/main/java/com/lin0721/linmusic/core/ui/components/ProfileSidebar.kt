@@ -58,6 +58,8 @@ fun ProfileSidebar(
     showListenDataEntry: Boolean = true,
     canOpenRecentPlay: Boolean = userProfile != null,
     canOpenCloud: Boolean = userProfile != null,
+    isLocalMode: Boolean = false,
+    onSelectLocal: () -> Unit = {},
     privateUnreadCount: Int = 0,
     conversationPreview: ConversationPreviewState = ConversationPreviewState(),
     onDismissUnread: () -> Unit = {},
@@ -111,6 +113,7 @@ fun ProfileSidebar(
             allAccounts = allAccounts,
             currentAccountId = currentAccountId,
             showGuestEntry = showGuestEntry,
+            isLocalMode = isLocalMode,
             onLogin = {
                 onDismiss()
                 onLogin()
@@ -127,6 +130,16 @@ fun ProfileSidebar(
         Spacer(modifier = Modifier.height(MelodiaSpacing.sm))
 
         // 菜单区。每项跳二级页，收起抽屉由调用方负责
+        if (!isLocalMode) {
+            SidebarMenuItem(
+                icon = MelodiaIcons.LocalMusic,
+                title = "本地模式",
+                onClick = {
+                    onDismiss()
+                    onSelectLocal()
+                }
+            )
+        }
         SidebarMenuItem(
             icon = MelodiaIcons.History,
             title = "最近播放",
@@ -181,26 +194,31 @@ private fun AccountCard(
     allAccounts: List<StoredAccount>,
     currentAccountId: AccountId?,
     showGuestEntry: Boolean,
+    isLocalMode: Boolean = false,
     onLogin: () -> Unit,
     onAddAccount: () -> Unit,
     onSelectAccount: (StoredAccount) -> Unit,
     onSelectGuest: () -> Unit,
     onNavigateToProfile: (uid: Long) -> Unit
 ) {
-    var expanded by rememberSaveable(currentAccountId?.canonical) { mutableStateOf(false) }
+    var expanded by rememberSaveable(currentAccountId?.canonical, isLocalMode) { mutableStateOf(false) }
     val arrowRotation by animateFloatAsState(
         targetValue = if (expanded) 180f else 0f,
         animationSpec = uiTween(ContentSwitchDurationMs, easing = FastOutSlowInEasing),
         label = "AccountCardArrow"
     )
-    val current = remember(allAccounts, currentAccountId) { allAccounts.firstOrNull { it.accountId == currentAccountId } }
+    val current = remember(allAccounts, currentAccountId, isLocalMode) {
+        if (isLocalMode) null else allAccounts.firstOrNull { it.accountId == currentAccountId }
+    }
     val hasAccounts = allAccounts.isNotEmpty()
     val title = when {
+        isLocalMode -> "本地模式"
         current != null -> current.displayName()
         hasAccounts -> "网易云 · 游客"
         else -> "未登录"
     }
     val subtitle = when {
+        isLocalMode -> if (hasAccounts) "点击切换账号" else "点击登录"
         current?.platform == MusicPlatform.NETEASE -> "查看个人资料"
         current != null -> current.platform.displayName
         hasAccounts -> "点击切换账号"

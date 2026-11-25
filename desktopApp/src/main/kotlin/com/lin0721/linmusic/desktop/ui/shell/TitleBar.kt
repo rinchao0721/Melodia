@@ -217,6 +217,8 @@ internal fun WindowScope.TitleBar(
     onLogoutAccount: (AccountId) -> Unit,
     canOpenProfile: Boolean,
     canOpenRecent: Boolean,
+    isLocalMode: Boolean = false,
+    onEnterLocalMode: () -> Unit = {},
     hideMessagesButton: Boolean = false,
     onProfileClick: () -> Unit,
     onRecentClick: () -> Unit,
@@ -379,23 +381,25 @@ internal fun WindowScope.TitleBar(
                         downloadNeedsAttention = downloadNeedsAttention,
                         onButtonClick = onTitleBarButtonClick
                     )
-                    SearchBox(
-                        query = searchQuery,
-                        placeholder = searchPlaceholder,
-                        onQueryChange = onSearchQueryChange,
-                        onFocusChange = onSearchFocusChange,
-                        onBoundsChange = { bounds ->
-                            searchBoxBounds = bounds
-                            onSearchBoundsChange(bounds)
-                        },
-                        onMove = onSearchMove,
-                        onSubmit = onSearchSubmit,
-                        focusRequests = searchFocusRequests,
-                        isBrowseActive = isBrowseActive,
-                        onBrowseClick = onBrowseClick,
-                        enabled = !editMode,
-                        modifier = Modifier.weight(1f, fill = false)
-                    )
+                    if (!isLocalMode) {
+                        SearchBox(
+                            query = searchQuery,
+                            placeholder = searchPlaceholder,
+                            onQueryChange = onSearchQueryChange,
+                            onFocusChange = onSearchFocusChange,
+                            onBoundsChange = { bounds ->
+                                searchBoxBounds = bounds
+                                onSearchBoundsChange(bounds)
+                            },
+                            onMove = onSearchMove,
+                            onSubmit = onSearchSubmit,
+                            focusRequests = searchFocusRequests,
+                            isBrowseActive = isBrowseActive,
+                            onBrowseClick = onBrowseClick,
+                            enabled = !editMode,
+                            modifier = Modifier.weight(1f, fill = false)
+                        )
+                    }
                     TitleBarSlotRow(
                         slot = TitleBarSlot.CENTER_END,
                         buttons = displayLayout.centerEnd,
@@ -440,6 +444,8 @@ internal fun WindowScope.TitleBar(
                     onLogoutAccount = onLogoutAccount,
                     canOpenProfile = canOpenProfile,
                     canOpenRecent = canOpenRecent,
+                    isLocalMode = isLocalMode,
+                    onEnterLocalMode = onEnterLocalMode,
                     onProfileClick = onProfileClick,
                     onRecentClick = onRecentClick,
                     onCloudClick = onCloudClick,
@@ -932,6 +938,8 @@ private fun AvatarMenu(
     onLogoutAccount: (AccountId) -> Unit,
     canOpenProfile: Boolean,
     canOpenRecent: Boolean,
+    isLocalMode: Boolean,
+    onEnterLocalMode: () -> Unit,
     onProfileClick: () -> Unit,
     onRecentClick: () -> Unit,
     onCloudClick: () -> Unit,
@@ -957,7 +965,16 @@ private fun AvatarMenu(
             onDismiss = { expanded = false },
             width = AccountMenuWidth
         ) {
-            if (current != null) {
+            if (isLocalMode) {
+                Text(
+                    "本地模式",
+                    color = DesktopColors.TextPrimary,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
+                )
+                MenuDivider()
+            } else if (current != null) {
                 AvatarMenuHeader(current, clickable = canOpenProfile) {
                     expanded = false
                     onProfileClick()
@@ -979,7 +996,24 @@ private fun AvatarMenu(
                     }
                 )
             }
-            if (addablePlatforms.isEmpty()) {
+            if (isLocalMode) {
+                SimpleMenuItem(
+                    text = "登录网易云音乐",
+                    onClick = {
+                        expanded = false
+                        onAddAccount(MusicPlatform.NETEASE)
+                    },
+                    leading = { PlatformBrandDot(MusicPlatform.NETEASE, 10.dp) }
+                )
+                SimpleMenuItem(
+                    text = "登录酷狗音乐",
+                    onClick = {
+                        expanded = false
+                        onAddAccount(MusicPlatform.KUGOU)
+                    },
+                    leading = { PlatformBrandDot(MusicPlatform.KUGOU, 10.dp) }
+                )
+            } else if (addablePlatforms.isEmpty()) {
                 MenuItem(
                     text = "添加账号（已达上限）",
                     onClick = {},
@@ -998,6 +1032,10 @@ private fun AvatarMenu(
                             leading = { PlatformBrandDot(platform, 10.dp) }
                         )
                     }
+                }
+                AvatarMenuItem(MelodiaIcons.LocalMusic, "本地模式") {
+                    expanded = false
+                    onEnterLocalMode()
                 }
             }
 

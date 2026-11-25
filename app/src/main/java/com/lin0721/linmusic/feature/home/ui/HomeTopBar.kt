@@ -144,6 +144,8 @@ fun HomeSharedHeader(
                         )
                     }
                 }
+            } else if (browsePlatform == MusicPlatform.LOCAL) {
+                Spacer(modifier = Modifier.weight(1f))
             } else {
                 FilterPills(
                     selectedIndex = selectedTab,
