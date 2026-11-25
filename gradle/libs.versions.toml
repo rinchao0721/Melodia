@@ -39,6 +39,7 @@ taglib = "1.0.5"
 lyriconProvider = "0.1.70"
 orgJson = "20230227"
 room = "2.8.5"
+sqliteBundled = "2.6.2"
 ksp = "2.3.12"
 profileinstaller = "1.4.1"
 baselineprofile = "1.5.0"
@@ -124,6 +125,7 @@ taglib = { group = "io.github.kyant0", name = "taglib", version.ref = "taglib" }
 androidx-room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
 androidx-room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
 androidx-room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
+androidx-sqlite-bundled = { group = "androidx.sqlite", name = "sqlite-bundled", version.ref = "sqliteBundled" }
 # 图片裁剪（歌单封面裁正方形）
 android-image-cropper = { group = "com.vanniktech", name = "android-image-cropper", version.ref = "imageCropper" }
 

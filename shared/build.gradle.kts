@@ -4,6 +4,7 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.compose.multiplatform)
+    alias(libs.plugins.ksp)
 }
 
 kotlin {
@@ -43,6 +44,8 @@ kotlin {
             implementation(compose.runtime)
             implementation(compose.foundation)
             implementation(compose.ui)
+            api(libs.androidx.room.runtime)
+            api(libs.androidx.sqlite.bundled)
         }
         getByName("desktopMain").dependencies {
             implementation(libs.org.json)
@@ -53,4 +56,13 @@ kotlin {
             implementation(libs.okhttp.mockwebserver)
         }
     }
+}
+
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
+}
+
+dependencies {
+    add("kspAndroid", libs.androidx.room.compiler)
+    add("kspDesktop", libs.androidx.room.compiler)
 }
