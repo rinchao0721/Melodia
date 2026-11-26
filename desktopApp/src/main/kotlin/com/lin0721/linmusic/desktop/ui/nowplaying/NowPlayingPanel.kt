@@ -62,7 +62,6 @@ import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.player.formatSleepTimerRemaining
 import com.lin0721.linmusic.core.preferences.FullPlayerCard
 import com.lin0721.linmusic.desktop.ui.components.Cover
-import com.lin0721.linmusic.desktop.ui.components.DesktopTooltip
 import com.lin0721.linmusic.desktop.ui.components.HoverReveal
 import com.lin0721.linmusic.desktop.ui.components.HoverScrollbarBox
 import com.lin0721.linmusic.desktop.ui.player.PersonalFmModePill
@@ -79,10 +78,8 @@ import com.lin0721.linmusic.core.ui.icons.AddCircle
 import com.lin0721.linmusic.core.ui.icons.CheckCircleFilled
 import com.lin0721.linmusic.core.ui.icons.PanelCollapse
 import com.lin0721.linmusic.core.ui.icons.ChevronRight
-import com.lin0721.linmusic.core.ui.icons.Devices
 import com.lin0721.linmusic.core.ui.icons.MoreHoriz
 import com.lin0721.linmusic.core.ui.icons.Moon
-import com.lin0721.linmusic.core.ui.icons.Phone
 
 private val HeaderButtonSize = 32.dp
 private val HeaderButtonOffset = 4.dp
@@ -96,10 +93,7 @@ fun NowPlayingPanel(
     modifier: Modifier = Modifier,
     onOpenComments: () -> Unit = {},
     onOpenLyricsView: () -> Unit = {},
-    onOpenLyricsFullscreen: () -> Unit = {},
-    onToggleDevices: (() -> Unit)? = null,
-    devicesOpen: Boolean = false,
-    remoteDeviceName: String? = null
+    onOpenLyricsFullscreen: () -> Unit = {}
 ) {
     val nowPlaying by controller.nowPlaying.collectAsState()
     val track = nowPlaying ?: return
@@ -121,10 +115,7 @@ fun NowPlayingPanel(
                 controller = controller,
                 playerViewModel = playerViewModel,
                 hovered = hovered,
-                onClose = onClose,
-                onToggleDevices = onToggleDevices,
-                devicesOpen = devicesOpen,
-                remoteDeviceName = remoteDeviceName
+                onClose = onClose
             )
             val pluginLayout = LocalPlayerLayouts.current[PlayerLayoutArea.DESKTOP_NOW_PLAYING]
             if (pluginLayout != null) {
@@ -308,10 +299,7 @@ private fun PanelHeader(
     controller: PlaybackController,
     playerViewModel: PlayerViewModel,
     hovered: Boolean,
-    onClose: () -> Unit,
-    onToggleDevices: (() -> Unit)? = null,
-    devicesOpen: Boolean = false,
-    remoteDeviceName: String? = null
+    onClose: () -> Unit
 ) {
     val sleepRemaining by controller.sleepTimerRemaining.collectAsState()
     val podcast by playerViewModel.podcastState.collectAsState()
@@ -344,21 +332,6 @@ private fun PanelHeader(
                 fontSize = 12.sp,
                 modifier = Modifier.padding(start = 4.dp)
             )
-        }
-        if (onToggleDevices != null) {
-            val deviceActive = remoteDeviceName != null || devicesOpen
-            HoverReveal(revealed = hovered || deviceActive) {
-                DesktopTooltip(remoteDeviceName?.let { "在 $it 上播放" } ?: "播放设备") {
-                    IconButton(onClick = onToggleDevices, modifier = Modifier.size(HeaderButtonSize)) {
-                        Icon(
-                            if (remoteDeviceName != null) MelodiaIcons.Phone else MelodiaIcons.Devices,
-                            remoteDeviceName?.let { "在 $it 上播放" } ?: "切换播放设备",
-                            tint = if (deviceActive) DesktopColors.Accent else DesktopColors.TextGray,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                }
-            }
         }
         HoverReveal(revealed = hovered || menuOpen, modifier = Modifier.offset(x = HeaderButtonOffset)) {
             Box {

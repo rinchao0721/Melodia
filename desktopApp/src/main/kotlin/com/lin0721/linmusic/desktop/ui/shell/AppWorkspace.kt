@@ -162,9 +162,7 @@ internal fun Workspace(
                     onResize = { delta -> pane.dragDock(delta, measure.dockMax, dockOpen, state::closeDockByDrag) },
                     onResizeEnd = pane::endDockDrag,
                     lanLink = deps.lanLink,
-                    remoteCoordinator = deps.remoteCoordinator,
-                    onToggleDevices = { state.toggleOverlay(DockOverlay.Devices) },
-                    devicesOpen = state.isOverlayOpen(DockOverlay.Devices)
+                    remoteCoordinator = deps.remoteCoordinator
                 )
             }
         }

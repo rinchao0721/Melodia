@@ -37,7 +37,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.lin0721.linmusic.core.lanlink.LanLinkDesktopHost
 import com.lin0721.linmusic.core.lanlink.LanLinkRemoteCoordinator
-import com.lin0721.linmusic.core.lanlink.PlaybackTarget
 import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.ui.theme.paneBackdrop
 import com.lin0721.linmusic.core.ui.theme.themedShadow
@@ -62,7 +61,6 @@ import com.lin0721.linmusic.feature.player.ui.PlayerViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.flowOf
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
-import com.lin0721.linmusic.core.ui.icons.PanelExpand
 import com.lin0721.linmusic.core.ui.icons.ChevronLeft
 
 private const val PEEK_DELAY_MS = 120L
@@ -157,9 +155,7 @@ fun NowPlayingDock(
     onResize: (delta: Dp) -> Unit,
     onResizeEnd: () -> Unit,
     lanLink: LanLinkDesktopHost? = null,
-    remoteCoordinator: LanLinkRemoteCoordinator? = null,
-    onToggleDevices: (() -> Unit)? = null,
-    devicesOpen: Boolean = false
+    remoteCoordinator: LanLinkRemoteCoordinator? = null
 ) {
     val hoverSource = remember { MutableInteractionSource() }
     val hovered by hoverSource.collectIsHoveredAsState()
@@ -168,9 +164,7 @@ fun NowPlayingDock(
     val lanLinkEnabled by (lanLink?.enabled ?: flowOf(false)).collectAsState(false)
     val connectedPeer by (lanLink?.connectedDevice ?: flowOf(null)).collectAsState(null)
     val pairedDevices by (lanLink?.pairedDevices ?: flowOf(emptyList())).collectAsState(emptyList())
-    val activeTarget by (remoteCoordinator?.activeTarget ?: flowOf(PlaybackTarget.Local)).collectAsState(PlaybackTarget.Local)
     val peerForSwitch = connectedPeer?.takeIf { lanLinkEnabled }
-    val remoteDeviceName = (activeTarget as? PlaybackTarget.Remote)?.peer?.deviceName
 
     // 停留一小段时间才预览，避免鼠标掠过窗口边缘时误触
     LaunchedEffect(hovered, collapsed) {
@@ -225,10 +219,7 @@ fun NowPlayingDock(
                         onClose = { onOpenChange(false) },
                         onOpenComments = onOpenComments,
                         onOpenLyricsView = onOpenLyricsView,
-                        onOpenLyricsFullscreen = onOpenLyricsFullscreen,
-                        onToggleDevices = onToggleDevices,
-                        devicesOpen = devicesOpen,
-                        remoteDeviceName = remoteDeviceName
+                        onOpenLyricsFullscreen = onOpenLyricsFullscreen
                     )
                     OverlayLayer(visible = open && overlay == DockOverlay.Comments) { modifier ->
                         CommentsPanel(host = playerCommentsHost, onClose = onCloseOverlay, modifier = modifier)
@@ -276,7 +267,7 @@ fun NowPlayingDock(
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
-                                MelodiaIcons.PanelExpand,
+                                MelodiaIcons.ChevronLeft,
                                 null,
                                 tint = if (hovered) DesktopColors.TextPrimary else DesktopColors.TextGray
                             )
