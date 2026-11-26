@@ -21,13 +21,14 @@ import kotlinx.coroutines.Dispatchers
         LocalPlaylistSourceEntity::class,
         LocalPlaylistRemovedEntity::class
     ],
-    version = 7,
+    version = 8,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2),
         AutoMigration(from = 2, to = 3, spec = LocalMusicDatabase.DropAlbumIdSpec::class),
         AutoMigration(from = 3, to = 4),
-        AutoMigration(from = 4, to = 5)
+        AutoMigration(from = 4, to = 5),
+        AutoMigration(from = 7, to = 8)
     ]
 )
 @ConstructedBy(LocalMusicDatabaseConstructor::class)

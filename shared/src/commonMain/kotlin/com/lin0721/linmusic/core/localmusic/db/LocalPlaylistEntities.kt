@@ -12,7 +12,8 @@ data class LocalPlaylistEntity(
     val createdAt: Long,
     val updatedAt: Long,
     val isPinned: Boolean = false,
-    val lastPlayedAt: Long = 0
+    val lastPlayedAt: Long = 0,
+    val systemKind: String? = null
 )
 
 @Entity(

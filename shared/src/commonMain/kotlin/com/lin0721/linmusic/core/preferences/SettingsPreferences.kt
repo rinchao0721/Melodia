@@ -171,6 +171,7 @@ class SettingsPreferences(
         private val KEY_FULL_SCREEN_LYRIC_ALIGNMENT = stringPreferencesKey("full_screen_lyric_alignment")
         // 全屏歌词是否显示双语翻译，默认 true
         private val KEY_FULL_SCREEN_LYRIC_SHOW_TRANSLATION = booleanPreferencesKey("full_screen_lyric_show_translation")
+        private val KEY_LYRICS_CARD_SHOW_TRANSLATION = booleanPreferencesKey("lyrics_card_show_translation")
         // 全屏歌词副文本展示模式 ("translation", "roma", "none")，默认 "translation"
         private val KEY_FULL_SCREEN_LYRIC_SECONDARY_MODE = stringPreferencesKey("full_screen_lyric_secondary_mode")
         // 逐字歌词流光动效，默认 true
@@ -859,6 +860,17 @@ class SettingsPreferences(
     suspend fun saveFullScreenLyricShowTranslation(show: Boolean) {
         dataStore.edit { prefs ->
             prefs[KEY_FULL_SCREEN_LYRIC_SHOW_TRANSLATION] = show
+        }
+    }
+
+    // 歌词小卡片是否显示翻译 Flow
+    val lyricsCardShowTranslation: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[KEY_LYRICS_CARD_SHOW_TRANSLATION] ?: true
+    }
+
+    suspend fun saveLyricsCardShowTranslation(show: Boolean) {
+        dataStore.edit { prefs ->
+            prefs[KEY_LYRICS_CARD_SHOW_TRANSLATION] = show
         }
     }
 

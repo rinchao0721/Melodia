@@ -16,6 +16,12 @@ interface LocalPlaylistDao {
     @Query("SELECT * FROM local_playlist ORDER BY isPinned DESC, updatedAt DESC")
     suspend fun getPlaylists(): List<LocalPlaylistEntity>
 
+    @Query("SELECT * FROM local_playlist WHERE id = :id LIMIT 1")
+    suspend fun getPlaylistById(id: Long): LocalPlaylistEntity?
+
+    @Query("SELECT * FROM local_playlist WHERE systemKind = :systemKind LIMIT 1")
+    suspend fun getBySystemKind(systemKind: String): LocalPlaylistEntity?
+
     @Query("SELECT * FROM local_playlist_track ORDER BY playlistId, position")
     fun observeEntries(): Flow<List<LocalPlaylistTrackEntity>>
 
@@ -48,6 +54,12 @@ interface LocalPlaylistDao {
 
     @Query("SELECT COALESCE(MAX(position), -1) FROM local_playlist_track WHERE playlistId = :playlistId")
     suspend fun maxPosition(playlistId: Long): Int
+
+    @Query("SELECT MIN(position) FROM local_playlist_track WHERE playlistId = :playlistId")
+    suspend fun minPosition(playlistId: Long): Int?
+
+    @Query("SELECT EXISTS(SELECT 1 FROM local_playlist_track WHERE playlistId = :playlistId AND trackLocation = :trackLocation)")
+    suspend fun hasTrack(playlistId: Long, trackLocation: String): Boolean
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertEntries(entries: List<LocalPlaylistTrackEntity>)
@@ -86,6 +98,22 @@ interface LocalPlaylistDao {
     suspend fun removeTrack(playlistId: Long, trackLocation: String, now: Long) {
         deleteEntry(playlistId, trackLocation)
         insertRemoved(listOf(LocalPlaylistRemovedEntity(playlistId, trackLocation)))
+        touch(playlistId, now)
+    }
+
+    @Transaction
+    suspend fun prependTrack(playlistId: Long, trackLocation: String, now: Long): Boolean {
+        if (hasTrack(playlistId, trackLocation)) return false
+        val pos = (minPosition(playlistId) ?: 1) - 1
+        insertEntries(listOf(LocalPlaylistTrackEntity(playlistId, trackLocation, pos)))
+        deleteRemoved(playlistId, trackLocation)
+        touch(playlistId, now)
+        return true
+    }
+
+    @Transaction
+    suspend fun removeEntryAndTouch(playlistId: Long, trackLocation: String, now: Long) {
+        deleteEntry(playlistId, trackLocation)
         touch(playlistId, now)
     }
 

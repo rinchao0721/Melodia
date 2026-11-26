@@ -219,6 +219,19 @@ class PlayerViewModel(
         }
     }
 
+    // 歌词小卡片是否显示翻译
+    val lyricsCardShowTranslation: StateFlow<Boolean> = settingsPreferences.lyricsCardShowTranslation.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = true
+    )
+
+    fun setLyricsCardShowTranslation(show: Boolean) {
+        viewModelScope.launch {
+            settingsPreferences.saveLyricsCardShowTranslation(show)
+        }
+    }
+
     // 播放页实际音质显隐
     val showPlaybackQuality: StateFlow<Boolean> = settingsPreferences.showPlaybackQuality.stateIn(
         scope = viewModelScope,

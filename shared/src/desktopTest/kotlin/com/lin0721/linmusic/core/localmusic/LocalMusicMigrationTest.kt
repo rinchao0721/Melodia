@@ -144,4 +144,46 @@ class LocalMusicMigrationTest {
             dir.deleteRecursively()
         }
     }
+
+    @Test
+    fun roomAutoMigratesV7ToV8PreservingDataAndNullSystemKind() = runTest {
+        val dir = Files.createTempDirectory("local_music_v7").toFile()
+        try {
+            val conn = BundledSQLiteDriver().open(File(dir, LocalMusicDatabase.NAME).absolutePath)
+            listOf(
+                "CREATE TABLE IF NOT EXISTS `local_track` (`location` TEXT NOT NULL, `mediaStoreId` INTEGER, `songId` INTEGER, `title` TEXT NOT NULL, `artist` TEXT NOT NULL, `album` TEXT, `durationMs` INTEGER NOT NULL, `sizeBytes` INTEGER NOT NULL, `path` TEXT, `dateAddedMs` INTEGER NOT NULL, `dateModifiedMs` INTEGER NOT NULL, `source` TEXT NOT NULL, `albumArtist` TEXT, `year` INTEGER, `trackNumber` INTEGER, `qualityLevel` TEXT, `matchState` TEXT NOT NULL, `matchedSongId` INTEGER, `hasEmbeddedCover` INTEGER NOT NULL, `folder` TEXT, PRIMARY KEY(`location`))",
+                "CREATE INDEX IF NOT EXISTS `index_local_track_artist` ON `local_track` (`artist`)",
+                "CREATE INDEX IF NOT EXISTS `index_local_track_album` ON `local_track` (`album`)",
+                "CREATE INDEX IF NOT EXISTS `index_local_track_folder` ON `local_track` (`folder`)",
+                "CREATE TABLE IF NOT EXISTS `local_playlist` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `isPinned` INTEGER NOT NULL, `lastPlayedAt` INTEGER NOT NULL)",
+                "CREATE TABLE IF NOT EXISTS `local_playlist_track` (`playlistId` INTEGER NOT NULL, `trackLocation` TEXT NOT NULL, `position` INTEGER NOT NULL, PRIMARY KEY(`playlistId`, `trackLocation`), FOREIGN KEY(`playlistId`) REFERENCES `local_playlist`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`trackLocation`) REFERENCES `local_track`(`location`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+                "CREATE INDEX IF NOT EXISTS `index_local_playlist_track_trackLocation` ON `local_playlist_track` (`trackLocation`)",
+                "CREATE TABLE IF NOT EXISTS `local_playlist_source` (`playlistId` INTEGER NOT NULL, `folderPath` TEXT NOT NULL, PRIMARY KEY(`playlistId`, `folderPath`), FOREIGN KEY(`playlistId`) REFERENCES `local_playlist`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+                "CREATE INDEX IF NOT EXISTS `index_local_playlist_source_playlistId` ON `local_playlist_source` (`playlistId`)",
+                "CREATE TABLE IF NOT EXISTS `local_playlist_removed` (`playlistId` INTEGER NOT NULL, `trackLocation` TEXT NOT NULL, PRIMARY KEY(`playlistId`, `trackLocation`), FOREIGN KEY(`playlistId`) REFERENCES `local_playlist`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+                "CREATE INDEX IF NOT EXISTS `index_local_playlist_removed_playlistId` ON `local_playlist_removed` (`playlistId`)",
+                "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+                "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '9d26a2f7754a5ea5529aa4470b307450')",
+                "INSERT INTO local_track VALUES ('/music/a.flac', NULL, 1001, '稻香', '周杰伦', '魔杰座', 223000, 5242880, '/music/a.flac', 1, 2, 'EXTERNAL', NULL, 2008, 1, 'lossless', 'MANUAL', 1001, 1, '/music')",
+                "INSERT INTO local_playlist (id, name, createdAt, updatedAt, isPinned, lastPlayedAt) VALUES (1, '开车听', 1000, 2000, 1, 3000)",
+                "INSERT INTO local_playlist_track VALUES (1, '/music/a.flac', 0)",
+                "PRAGMA user_version = 7"
+            ).forEach { conn.execSQL(it) }
+            conn.close()
+
+            val db = LocalMusicDatabase.build(LocalMusicDatabaseFactory(dir).createBuilder())
+            try {
+                val playlists = db.localPlaylistDao().getPlaylists()
+                assertEquals(1, playlists.size)
+                assertEquals("开车听", playlists.first().name)
+                assertEquals(null, playlists.first().systemKind)
+                assertEquals(true, playlists.first().isPinned)
+                assertEquals(listOf("/music/a.flac"), db.localPlaylistDao().trackLocations(1))
+            } finally {
+                db.close()
+            }
+        } finally {
+            dir.deleteRecursively()
+        }
+    }
 }
