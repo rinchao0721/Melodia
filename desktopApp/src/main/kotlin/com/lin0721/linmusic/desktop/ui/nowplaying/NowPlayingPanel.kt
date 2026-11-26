@@ -122,7 +122,15 @@ fun NowPlayingPanel(
                 PluginNowPlayingHeader(pluginLayout, track, controller, playerViewModel)
             } else {
                 BoxWithConstraints(Modifier.fillMaxWidth().padding(top = 8.dp)) {
-                    Cover(track.artworkUri, maxWidth, shape = RoundedCornerShape(8.dp), requestSize = DesktopDimens.NowPlayingMaxWidth)
+                    Cover(
+                        track.artworkUri,
+                        maxWidth,
+                        shape = RoundedCornerShape(8.dp),
+                        requestSize = DesktopDimens.NowPlayingMaxWidth,
+                        onClick = track.artworkUri?.takeIf { it.isNotBlank() }?.let { url ->
+                            { bounds -> navigator.openCoverPreview(url, track.title, bounds) }
+                        }
+                    )
                 }
                 NowPlayingSongTitle(
                     track,
@@ -231,12 +239,21 @@ private fun PluginNowPlayingTree(
     binding: PlayerBindingState
 ) {
     val playerViewModel = parts.playerViewModel
+    val navigator = LocalDesktopNavigator.current
     PlayerLayoutView(root, Modifier.fillMaxWidth().padding(top = 8.dp), binding::prepare) { node, modifier ->
         val scale = node.size.scale
         when (node.type) {
             LayoutNodeType.COVER -> BoxWithConstraints(modifier) {
                 val size = node.maxSize?.let { minOf(maxWidth, it.dp) } ?: maxWidth
-                Cover(track.artworkUri, size, shape = node.layoutShape(), requestSize = DesktopDimens.NowPlayingMaxWidth)
+                Cover(
+                    track.artworkUri,
+                    size,
+                    shape = node.layoutShape(),
+                    requestSize = DesktopDimens.NowPlayingMaxWidth,
+                    onClick = track.artworkUri?.takeIf { it.isNotBlank() }?.let { url ->
+                        { bounds -> navigator.openCoverPreview(url, track.title, bounds) }
+                    }
+                )
             }
             LayoutNodeType.SONG_TITLE -> NowPlayingSongTitle(
                 track, playerViewModel, fontSize = (22 * scale).sp, fontWeight = FontWeight.Bold, maxLines = node.maxLines, modifier = modifier

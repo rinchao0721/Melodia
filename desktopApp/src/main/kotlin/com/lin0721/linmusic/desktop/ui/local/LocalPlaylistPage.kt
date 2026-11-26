@@ -400,13 +400,21 @@ private fun emptyMessage(playlistId: Long, query: String): String = when {
 
 @Composable
 private fun LocalPlaylistHero(summary: LocalPlaylistSummary, tracks: List<LocalTrack>, folders: List<String>) {
+    val navigator = LocalDesktopNavigator.current
     val totalMs = tracks.sumOf { it.durationMs }
     val detail = buildString {
         append("${tracks.size} 首歌曲")
         if (totalMs > 0) append("，${formatTotalDuration(totalMs)}")
     }
     Row(Modifier.fillMaxWidth().padding(HeaderPadding), verticalAlignment = Alignment.Bottom) {
-        Cover(summary.coverUri, 200.dp, shape = RoundedCornerShape(6.dp))
+        Cover(
+            summary.coverUri,
+            200.dp,
+            shape = RoundedCornerShape(6.dp),
+            onClick = summary.coverUri?.takeIf { it.isNotBlank() }?.let { url ->
+                { bounds -> navigator.openCoverPreview(url, summary.name, bounds) }
+            }
+        )
         Column(Modifier.weight(1f).padding(start = HeaderPadding)) {
             Text("本地歌单", color = DesktopColors.TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
             Text(

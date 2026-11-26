@@ -8,6 +8,7 @@ import com.lin0721.linmusic.core.ui.components.PlayPauseIcon
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -25,10 +26,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -39,7 +43,10 @@ import coil3.compose.SubcomposeAsyncImage
 import coil3.request.ImageRequest
 import coil3.request.crossfade
 import com.lin0721.linmusic.core.ui.components.CoverPlaceholder
+import com.lin0721.linmusic.core.ui.components.CoverPreviewBounds
+import com.lin0721.linmusic.core.ui.components.LocalCoverPreview
 import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
+import com.lin0721.linmusic.core.ui.components.toCoverPreviewBounds
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.RadiusCompact
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
@@ -139,9 +146,13 @@ fun PlaylistHeaderItem(
             contentAlignment = Alignment.Center
         ) {
             val context = LocalContext.current
-            val coverRequest = remember(playlist.coverImgUrl) {
+            val coverPreview = LocalCoverPreview.current
+            val haptic = LocalHapticFeedback.current
+            var coverBounds by remember { mutableStateOf<CoverPreviewBounds?>(null) }
+            val cachedCoverUrl = "${playlist.coverImgUrl}?param=400y400"
+            val coverRequest = remember(cachedCoverUrl) {
                 ImageRequest.Builder(context)
-                    .data("${playlist.coverImgUrl}?param=400y400")
+                    .data(cachedCoverUrl)
                     .crossfade(true)
                     .build()
             }
@@ -159,11 +170,26 @@ fun PlaylistHeaderItem(
                 error              = { CoverPlaceholder() },
                 modifier           = Modifier
                     .size(coverSize)
+                    .onGloballyPositioned { coverBounds = it.toCoverPreviewBounds() }
                     .graphicsLayer {
                         alpha = 1f - (progressProvider() / 0.65f).coerceIn(0f, 1f)
                     }
                     .themedShadow(elevation = 16.dp, shape = RoundedCornerShape(RadiusCompact), clip = false)
                     .clip(RoundedCornerShape(RadiusCompact))
+                    .then(
+                        if (playlist.coverImgUrl.isNotBlank()) {
+                            Modifier.pointerInput(cachedCoverUrl, playlist.name) {
+                                detectTapGestures(
+                                    onLongPress = {
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        coverPreview.open(cachedCoverUrl, playlist.name, coverBounds)
+                                    }
+                                )
+                            }
+                        } else {
+                            Modifier
+                        }
+                    )
             )
         }
 

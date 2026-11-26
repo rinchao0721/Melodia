@@ -58,10 +58,12 @@ import com.lin0721.linmusic.core.ui.back.MelodiaDismissBackHandler
 import com.lin0721.linmusic.core.ui.back.backDismissPreview
 import com.lin0721.linmusic.core.ui.back.rememberBackDismissState
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.isSpecified
 import androidx.compose.ui.unit.dp
@@ -81,6 +83,8 @@ import com.lin0721.linmusic.core.platform.ArtistId
 import com.lin0721.linmusic.core.ui.components.ArtistPickerEntry
 import com.lin0721.linmusic.core.ui.components.CollectPromptEffect
 import com.lin0721.linmusic.core.ui.components.ArtistPickerSheet
+import com.lin0721.linmusic.core.ui.components.CoverPreviewBounds
+import com.lin0721.linmusic.core.ui.components.LocalCoverPreview
 import com.lin0721.linmusic.core.ui.components.SwipeQueueTarget
 import com.lin0721.linmusic.core.ui.components.SwipeToSkipCover
 import com.lin0721.linmusic.core.share.ShareCardKind
@@ -234,6 +238,8 @@ private fun FullPlayerScreenContent(
     if (currentTrack == null) return
 
     val context = LocalContext.current
+    val coverPreview = LocalCoverPreview.current
+    val haptic = LocalHapticFeedback.current
     val coroutineScope = rememberCoroutineScope()
     val viewModel: PlayerViewModel = koinViewModel()
     val settingsPreferences: SettingsPreferences = koinInject()
@@ -577,6 +583,17 @@ private fun FullPlayerScreenContent(
         displayedArtist = artist
     }
 
+    // 优先取当前缓存规格，打开首帧直接命中内存缓存
+    val previewCoverUrl = coverUrl.ifBlank { currentTrack.artworkUri.orEmpty() }
+    val onCoverLongClick: ((CoverPreviewBounds?) -> Unit)? = if (previewCoverUrl.isNotBlank()) {
+        { bounds ->
+            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            coverPreview.open(previewCoverUrl, displayedTitle, bounds)
+        }
+    } else {
+        null
+    }
+
     // 未匹配云端的本地歌曲只有负数占位 id，没有可复制的链接
     val songLink = currentTrack.mediaId.toLongOrNull()
         ?.takeIf { it > 0 && !songDetailState.isLocalOnly && !podcast.isPodcast }
@@ -797,7 +814,8 @@ private fun FullPlayerScreenContent(
             onCommentsClick = { showCommentsSheet = true },
             personalFmMode = personalFmMode,
             onPersonalFmModeClick = { showPersonalFmModeSheet = true },
-            onTrashFm = viewModel::trashCurrentFmSong
+            onTrashFm = viewModel::trashCurrentFmSong,
+            onCoverLongClick = onCoverLongClick
         )
     } else {
         null
@@ -982,7 +1000,8 @@ private fun FullPlayerScreenContent(
                         baseCoverPadding = animatedCoverPadding,
                         itemGap = animatedItemGap,
                         fillGap = if (allCardsHidden) fillGap else null,
-                        fillTail = fillTail
+                        fillTail = fillTail,
+                        onCoverLongClick = onCoverLongClick
                     )
 
                     if (showInfoCards) fullPlayerInfoSection(
@@ -1107,7 +1126,8 @@ private fun FullPlayerScreenContent(
                         elevation = 24.dp,
                         modifier = coverModifier,
                         onCancelPending = viewModel.playerManager::cancelPendingSkip,
-                        queueTarget = swipeQueueTarget
+                        queueTarget = swipeQueueTarget,
+                        onLongClick = onCoverLongClick
                     )
                 },
                 playbackControls = {

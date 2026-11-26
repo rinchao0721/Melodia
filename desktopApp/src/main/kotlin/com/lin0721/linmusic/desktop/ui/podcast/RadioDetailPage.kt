@@ -38,9 +38,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.desktop.ui.components.Cover
 import com.lin0721.linmusic.desktop.ui.components.HoverScrollbarBox
+import com.lin0721.linmusic.desktop.ui.components.sizedCoverUrl
 import com.lin0721.linmusic.desktop.ui.home.HomeTabError
 import com.lin0721.linmusic.desktop.ui.home.HomeTabLoading
 import com.lin0721.linmusic.desktop.ui.home.OutlineChip
+import com.lin0721.linmusic.desktop.ui.shell.LocalDesktopNavigator
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import com.lin0721.linmusic.feature.podcast.domain.PodcastRadioDetail
 import com.lin0721.linmusic.feature.podcast.domain.formatSubCount
@@ -137,9 +139,17 @@ private fun RadioDetailContent(
 
 @Composable
 private fun RadioHeader(detail: PodcastRadioDetail) {
+    val navigator = LocalDesktopNavigator.current
     var expanded by remember { mutableStateOf(false) }
     Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), verticalAlignment = Alignment.Bottom) {
-        Cover(detail.picUrl, CoverSize, shape = RoundedCornerShape(8.dp))
+        Cover(
+            detail.picUrl,
+            CoverSize,
+            shape = RoundedCornerShape(8.dp),
+            onClick = detail.picUrl.takeIf { it.isNotBlank() }?.let { url ->
+                { bounds -> navigator.openCoverPreview(sizedCoverUrl(url, 400) ?: url, detail.name, bounds) }
+            }
+        )
         Column(Modifier.weight(1f).padding(start = 24.dp)) {
             Text("电台", color = DesktopColors.TextGray, fontSize = 13.sp)
             Text(

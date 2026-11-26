@@ -48,6 +48,7 @@ import com.lin0721.linmusic.core.plugin.PlayerLayoutSpec
 import com.lin0721.linmusic.core.plugin.PlayerLayoutView
 import com.lin0721.linmusic.core.plugin.layoutShape
 import com.lin0721.linmusic.core.plugin.resolve
+import com.lin0721.linmusic.core.ui.components.CoverPreviewBounds
 import com.lin0721.linmusic.core.ui.components.SwipeQueueTarget
 import com.lin0721.linmusic.core.ui.components.SwipeToSkipCover
 import com.lin0721.linmusic.core.ui.theme.ImmersiveTheme
@@ -114,7 +115,8 @@ class FullPlayerLayoutParts(
     val onCommentsClick: () -> Unit,
     val personalFmMode: PersonalFmMode = PersonalFmMode.DEFAULT,
     val onPersonalFmModeClick: (() -> Unit)? = null,
-    val onTrashFm: () -> Unit = {}
+    val onTrashFm: () -> Unit = {},
+    val onCoverLongClick: ((CoverPreviewBounds?) -> Unit)? = null
 ) {
     // $player 绑定的取值；本对象每次重组都重建，算一次即可
     val binding: PlayerBindingState by lazy {
@@ -206,7 +208,8 @@ class FullPlayerLayoutParts(
                         shape = shape,
                         modifier = coverModifier,
                         onCancelPending = onCancelSkip,
-                        queueTarget = queueTarget
+                        queueTarget = queueTarget,
+                        onLongClick = onCoverLongClick
                     )
                 }
                 if (glow == null) {

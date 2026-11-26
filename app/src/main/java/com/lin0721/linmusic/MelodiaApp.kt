@@ -81,7 +81,10 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lin0721.linmusic.core.ui.components.CollectPromptEffect
+import com.lin0721.linmusic.core.ui.components.CoverPreviewOverlay
+import com.lin0721.linmusic.core.ui.components.CoverPreviewState
 import com.lin0721.linmusic.core.ui.components.KugouLoginBottomSheet
+import com.lin0721.linmusic.core.ui.components.LocalCoverPreview
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectSheet
 import com.lin0721.linmusic.core.ui.components.LoginBottomSheet
 import com.lin0721.linmusic.core.ui.components.AccountSwitchConfirmDialog
@@ -332,6 +335,7 @@ fun MelodiaApp() {
 
     val playerSheet = rememberMelodiaPlayerSheetState()
     val navigation = rememberMelodiaNavigationState()
+    val coverPreviewState = remember { CoverPreviewState() }
     val pluginContent: PluginContent = koinInject()
     LaunchedEffect(navigation) { pluginContent.opens.collect { navigation.openPlaylist(it.id, false) } }
     val sidebar = rememberMelodiaSidebarState(SidebarWidth)
@@ -889,12 +893,13 @@ fun MelodiaApp() {
     )
 
     // 面板停靠左侧时左边缘被面板占住，边缘拉出侧边栏会和面板内的拖动手势冲突
-    val isEdgeSwipeBlocked = usePanel && isPanelAtStart && isPanelShown
+    val isEdgeSwipeBlocked = (usePanel && isPanelAtStart && isPanelShown) || coverPreviewState.current != null
     val isSidebarScrimVisible by remember(sidebar) { derivedStateOf { sidebar.progress > 0f } }
     // 主页任意位置右滑拉出侧栏；横向列表滚到最左后的继续右滑由 homeHandoffConnection 接管
     val isHomeSwipeEnabled = navigation.currentScreen == Screen.Home &&
         !playerSheet.isOpen && !showRecognition &&
-        !isLoginScreenVisible && !showSidebarWebLogin && !(usePanel && isPanelShown)
+        !isLoginScreenVisible && !showSidebarWebLogin && !(usePanel && isPanelShown) &&
+        coverPreviewState.current == null
     SideEffect { sidebar.isHomeHandoffEnabled = isHomeSwipeEnabled }
     val isDrawerDraggable = sidebar.isOpen || isHomeSwipeEnabled ||
         (sidebar.isTouchStartingAtEdge && !isEdgeSwipeBlocked)
@@ -902,7 +907,8 @@ fun MelodiaApp() {
     CompositionLocalProvider(
         LocalMelodiaWindowSizeClass provides windowSizeClass,
         LocalMelodiaOrientationClass provides orientationClass,
-        LocalMelodiaPlayerPanelAtStart provides isPanelAtStart
+        LocalMelodiaPlayerPanelAtStart provides isPanelAtStart,
+        LocalCoverPreview provides coverPreviewState
     ) {
     Box(
         modifier = Modifier
@@ -1011,7 +1017,7 @@ fun MelodiaApp() {
                 CompositionLocalProvider(
                     LocalBottomOverlayInset provides bottomOverlayHeight,
                     LocalMiniPlayerSuppressor provides miniPlayerSuppressor,
-                    LocalGlobalOverlayOpen provides (playerSheet.isOpen || sidebar.isOpen)
+                    LocalGlobalOverlayOpen provides (playerSheet.isOpen || sidebar.isOpen || coverPreviewState.current != null)
                 ) {
                     Box(
                         modifier = Modifier
@@ -1486,8 +1492,14 @@ fun MelodiaApp() {
                 )
         )
 
+        // 全屏封面灯箱预览，位于播放浮层之上、Toast 之下
+        CoverPreviewOverlay(
+            state = coverPreviewState,
+            modifier = Modifier.zIndex(5f)
+        )
+
         // 5. 全局自定义 Toast 提示
-        MelodiaToastHost(toastMessage = toastMessage)
+        MelodiaToastHost(toastMessage = toastMessage, modifier = Modifier.zIndex(10f))
 
         // 6. 全局更新弹窗，由更新横幅或设置页手动检查打开
         val updateChecker: UpdateChecker = koinInject()

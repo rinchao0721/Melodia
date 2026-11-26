@@ -69,6 +69,7 @@ import com.lin0721.linmusic.core.ui.theme.LocalCoverColorMemory
 import com.lin0721.linmusic.core.ui.theme.skinBackdropRoot
 import com.lin0721.linmusic.desktop.player.AudioOutputControl
 import com.lin0721.linmusic.desktop.player.RoutingDesktopPlaybackController
+import com.lin0721.linmusic.desktop.ui.components.CoverPreviewOverlay
 import com.lin0721.linmusic.desktop.ui.components.readTextFromClipboard
 import com.lin0721.linmusic.desktop.ui.components.registerClipboardCopyObserver
 import com.lin0721.linmusic.desktop.ui.components.uiEnter
@@ -373,6 +374,7 @@ fun WindowScope.MelodiaDesktopApp(
                 .onPointerEvent(PointerEventType.Exit) { lyricsView.pointerInWindow = false }
                 // 点到搜索下拉之外就收起它；鼠标侧键与浏览器一致：后退键返回，前进键前进；不消费事件，子组件照常响应
                 .onPointerEvent(PointerEventType.Press, PointerEventPass.Initial) { event ->
+                    if (state.coverPreview != null) return@onPointerEvent
                     val pos = event.changes.firstOrNull()?.position
                     pos?.let(searchDropdown::onWindowPress)
                     if (state.titleBarEditMode && !event.buttons.isSecondaryPressed && pos != null && !titleBarBounds.contains(pos)) {
@@ -456,6 +458,11 @@ fun WindowScope.MelodiaDesktopApp(
                     }
                 }
             }
+            CoverPreviewOverlay(
+                request = state.coverPreview,
+                onDismiss = { state.coverPreview = null },
+                onMessage = state::showMessage
+            )
             Column(
                 modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 96.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,

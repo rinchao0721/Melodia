@@ -4,6 +4,7 @@ import com.lin0721.linmusic.core.download.toDownloadTrackInfo
 import com.lin0721.linmusic.core.model.Track
 import com.lin0721.linmusic.core.share.ShareCardKind
 import com.lin0721.linmusic.core.source.MusicPlatform
+import com.lin0721.linmusic.core.ui.components.CoverPreviewRequest
 import com.lin0721.linmusic.desktop.ui.navigation.DesktopRoute
 
 // 把应用状态与下载能力包装成页面使用的跳转与提示入口
@@ -67,6 +68,9 @@ internal fun desktopNavigator(
                 state.showLogin = true
             }
         },
-        openCloud = state::openCloud
+        openCloud = state::openCloud,
+        openCoverPreview = { url, title, bounds ->
+            if (!url.isNullOrBlank()) state.coverPreview = CoverPreviewRequest(url, title, bounds)
+        }
     )
 }

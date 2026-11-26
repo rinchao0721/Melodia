@@ -90,6 +90,7 @@ import com.lin0721.linmusic.desktop.ui.components.LocalUiMotion
 import com.lin0721.linmusic.desktop.ui.components.MenuDivider
 import com.lin0721.linmusic.desktop.ui.components.MenuItem
 import com.lin0721.linmusic.desktop.ui.components.SubMenuItem
+import com.lin0721.linmusic.desktop.ui.components.sizedCoverUrl
 import com.lin0721.linmusic.desktop.ui.components.uiSpring
 import com.lin0721.linmusic.desktop.ui.components.uiTween
 import com.lin0721.linmusic.desktop.ui.library.CreatePlaylistDialog
@@ -836,7 +837,14 @@ private fun PlaylistHero(
         if (totalMs != null) append("，${formatTotalDuration(totalMs)}")
     }
     Row(Modifier.fillMaxWidth().padding(HeaderPadding), verticalAlignment = Alignment.Bottom) {
-        Cover(playlist.coverImgUrl, 200.dp, shape = RoundedCornerShape(6.dp))
+        Cover(
+            playlist.coverImgUrl,
+            200.dp,
+            shape = RoundedCornerShape(6.dp),
+            onClick = playlist.coverImgUrl.takeIf { it.isNotBlank() }?.let { url ->
+                { bounds -> navigator.openCoverPreview(sizedCoverUrl(url, 400) ?: url, playlist.name, bounds) }
+            }
+        )
         Column(Modifier.weight(1f).padding(start = HeaderPadding)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(typeLabel, color = DesktopColors.TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)

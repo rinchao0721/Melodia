@@ -2,6 +2,7 @@ package com.lin0721.linmusic.feature.localmusic.ui.collection
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -31,6 +32,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -38,7 +43,10 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lin0721.linmusic.LocalBottomOverlayInset
 import com.lin0721.linmusic.core.ui.components.EmptyState
+import com.lin0721.linmusic.core.ui.components.CoverPreviewBounds
+import com.lin0721.linmusic.core.ui.components.LocalCoverPreview
 import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
+import com.lin0721.linmusic.core.ui.components.toCoverPreviewBounds
 import com.lin0721.linmusic.core.ui.components.SecondaryScreenScaffold
 import com.lin0721.linmusic.core.ui.interaction.pressable
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
@@ -206,13 +214,32 @@ fun LocalAlbumScreen(
                         coverSourceUri = album.coverSourceUri,
                         onBack = navigation.onBack,
                         actions = { LocalSelectionActions(state, album.tracks, viewModel) { confirmDelete = true } }
-                    ) {
+                    ) { coverUrl ->
+                        val coverPreview = LocalCoverPreview.current
+                        val haptic = LocalHapticFeedback.current
+                        var coverBounds by remember { mutableStateOf<CoverPreviewBounds?>(null) }
                         Row(verticalAlignment = Alignment.Bottom) {
                             LocalCover(
                                 sourceUri = album.coverSourceUri,
                                 size = AlbumCoverSize,
                                 shape = RoundedCornerShape(8.dp),
-                                fallbackIcon = MelodiaIcons.Album
+                                fallbackIcon = MelodiaIcons.Album,
+                                modifier = Modifier
+                                    .onGloballyPositioned { coverBounds = it.toCoverPreviewBounds() }
+                                    .then(
+                                        if (!coverUrl.isNullOrBlank()) {
+                                            Modifier.pointerInput(coverUrl, album.name) {
+                                                detectTapGestures(
+                                                    onLongPress = {
+                                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                        coverPreview.open(coverUrl, album.name, coverBounds)
+                                                    }
+                                                )
+                                            }
+                                        } else {
+                                            Modifier
+                                        }
+                                    )
                             )
                             Spacer(Modifier.width(MelodiaSpacing.md))
                             Column {

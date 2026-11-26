@@ -11,6 +11,7 @@ import com.lin0721.linmusic.core.platform.PlaylistId
 import com.lin0721.linmusic.core.platform.toDeterministicLegacyId
 import com.lin0721.linmusic.core.share.ShareCardKind
 import com.lin0721.linmusic.core.ui.components.CollectPromptEvent
+import com.lin0721.linmusic.core.ui.components.CoverPreviewRequest
 import com.lin0721.linmusic.desktop.data.LibraryMode
 import com.lin0721.linmusic.desktop.data.LibraryViewMode
 import com.lin0721.linmusic.desktop.ui.comments.CommentsHost
@@ -53,6 +54,7 @@ class DesktopAppState(
 
     // 非空时显示分享卡片对话框；song 为 null 时分享当前正在播放的歌曲
     var shareCardTarget by mutableStateOf<ShareCardTarget?>(null)
+    var coverPreview by mutableStateOf<CoverPreviewRequest?>(null)
     var showRecognition by mutableStateOf(false)
     var titleBarEditMode by mutableStateOf(false)
 

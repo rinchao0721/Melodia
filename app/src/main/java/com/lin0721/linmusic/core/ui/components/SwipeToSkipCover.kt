@@ -2,6 +2,7 @@ package com.lin0721.linmusic.core.ui.components
 
 import androidx.compose.animation.core.animate
 import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.Box
@@ -29,7 +30,9 @@ import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -272,7 +275,8 @@ fun SwipeToSkipCover(
     // 快速滑回中间时尝试撤销上一次已确认但还没落地的切歌；返回 true 表示撤销成功
     onCancelPending: () -> Boolean = { false },
     // 队列当前位置，判断切歌是否还在途中；为空时不做冻结
-    queueTarget: SwipeQueueTarget? = null
+    queueTarget: SwipeQueueTarget? = null,
+    onLongClick: ((CoverPreviewBounds?) -> Unit)? = null
 ) {
     val motion = LocalUiMotion.current
     val scope = rememberCoroutineScope()
@@ -304,6 +308,8 @@ fun SwipeToSkipCover(
     // 拖拽确认时的队列位置，位置变了且 key 已追上即视为切歌落地
     var confirmedQueueIndex by remember { mutableStateOf<Int?>(null) }
     val latestQueueIndex by rememberUpdatedState(queueTarget?.index)
+    val latestOnLongClick by rememberUpdatedState(onLongClick)
+    var primaryCoverBounds by remember { mutableStateOf<CoverPreviewBounds?>(null) }
     val gestureBusy = isDragActive || settleJob?.isActive == true
     // 冻结判据只看队列是否先行：相邻曲目与当前同 key（重复曲目、循环回绕）不代表切歌中
     if (queueTarget?.isAheadOf(currentKey) == true) {
@@ -452,6 +458,21 @@ fun SwipeToSkipCover(
                     Modifier
                 }
             )
+            .then(
+                if (onLongClick != null) {
+                    Modifier.pointerInput(Unit) {
+                        detectTapGestures(
+                            onLongPress = {
+                                if (!isDragActive && offsetX == 0f) {
+                                    latestOnLongClick?.invoke(primaryCoverBounds)
+                                }
+                            }
+                        )
+                    }
+                } else {
+                    Modifier
+                }
+            )
     ) {
         val previewPreviousUrl = displayedPreviousCoverUrl
         val previewNextUrl = displayedNextCoverUrl
@@ -465,7 +486,7 @@ fun SwipeToSkipCover(
                 when (outgoing.direction) {
                     SwipeDirection.NEXT -> {
                         add(SwipeCoverLayerSpec("${outgoing.key}-outgoing", outgoing.coverUrl) { offsetX - containerWidthPx })
-                        add(SwipeCoverLayerSpec(displayedCurrentKey.toString(), displayedCoverUrl) { offsetX })
+                        add(SwipeCoverLayerSpec(displayedCurrentKey.toString(), displayedCoverUrl, isPrimary = true) { offsetX })
                         val nextUrl = displayedNextCoverUrl
                         if (nextUrl != null) {
                             val nextK = displayedNextKey?.toString() ?: "next"
@@ -478,7 +499,7 @@ fun SwipeToSkipCover(
                             val prevK = displayedPreviousKey?.toString() ?: "prev"
                             add(SwipeCoverLayerSpec(prevK, prevUrl) { offsetX - containerWidthPx })
                         }
-                        add(SwipeCoverLayerSpec(displayedCurrentKey.toString(), displayedCoverUrl) { offsetX })
+                        add(SwipeCoverLayerSpec(displayedCurrentKey.toString(), displayedCoverUrl, isPrimary = true) { offsetX })
                         add(SwipeCoverLayerSpec("${outgoing.key}-outgoing", outgoing.coverUrl) { offsetX + containerWidthPx })
                     }
                 }
@@ -501,7 +522,7 @@ fun SwipeToSkipCover(
                     }
                     add(SwipeCoverLayerSpec(prevKeyCalculated, previewPreviousUrl) { offsetX - containerWidthPx })
                 }
-                add(SwipeCoverLayerSpec(currentKeyStr, displayedCoverUrl) { offsetX })
+                add(SwipeCoverLayerSpec(currentKeyStr, displayedCoverUrl, isPrimary = true) { offsetX })
                 if (shouldShowNeighbors && previewNextUrl != null) {
                     val nextKeyCalculated = when {
                         previewNxtKey != null -> {
@@ -524,7 +545,12 @@ fun SwipeToSkipCover(
                     shape = shape,
                     elevation = elevation,
                     contentPadding = contentPadding,
-                    translationXProvider = layer.translationXProvider
+                    translationXProvider = layer.translationXProvider,
+                    onBoundsChanged = if (layer.isPrimary) {
+                        { bounds -> primaryCoverBounds = bounds }
+                    } else {
+                        null
+                    }
                 )
             }
         }
@@ -534,9 +560,10 @@ fun SwipeToSkipCover(
 private class SwipeCoverLayerSpec(
     val key: Any,
     val url: String,
+    val isPrimary: Boolean = false,
     val translationXProvider: () -> Float
 ) {
-    constructor(url: String, translationXProvider: () -> Float) : this(url, url, translationXProvider)
+    constructor(url: String, translationXProvider: () -> Float) : this(url, url, false, translationXProvider)
 }
 
 @Composable
@@ -546,7 +573,8 @@ private fun SwipeCoverLayer(
     shape: Shape,
     elevation: Dp,
     contentPadding: Dp,
-    translationXProvider: () -> Float
+    translationXProvider: () -> Float,
+    onBoundsChanged: ((CoverPreviewBounds?) -> Unit)? = null
 ) {
     var isTransparentCover by remember(url) {
         mutableStateOf(CoverContourShadowHelper.isTransparent(url) == true)
@@ -572,6 +600,13 @@ private fun SwipeCoverLayer(
             .graphicsLayer { translationX = translationXProvider() }
             .padding(horizontal = contentPadding)
             .aspectRatio(1f)
+            .then(
+                if (onBoundsChanged != null) {
+                    Modifier.onGloballyPositioned { onBoundsChanged(it.toCoverPreviewBounds()) }
+                } else {
+                    Modifier
+                }
+            )
             .then(
                 if (!isTransparentCover && elevation > 0.dp) {
                     Modifier.shadow(elevation = elevation, shape = shape, clip = false)

@@ -3,6 +3,7 @@ package com.lin0721.linmusic.feature.podcast.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -36,7 +37,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -47,7 +52,10 @@ import coil3.compose.AsyncImage
 import coil3.compose.SubcomposeAsyncImage
 import com.lin0721.linmusic.LocalBottomOverlayInset
 import com.lin0721.linmusic.core.ui.components.CoverPlaceholder
+import com.lin0721.linmusic.core.ui.components.CoverPreviewBounds
+import com.lin0721.linmusic.core.ui.components.LocalCoverPreview
 import com.lin0721.linmusic.core.ui.components.ToastManager
+import com.lin0721.linmusic.core.ui.components.toCoverPreviewBounds
 import com.lin0721.linmusic.core.ui.interaction.pressable
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
@@ -249,10 +257,25 @@ private fun RadioDetailHeader(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 if (detail.picUrl.isNotBlank()) {
+                    val coverPreview = LocalCoverPreview.current
+                    val haptic = LocalHapticFeedback.current
+                    var coverBounds by remember { mutableStateOf<CoverPreviewBounds?>(null) }
+                    val cachedCoverUrl = detail.picUrl.withPodcastCoverParam("400y400")
                     SubcomposeAsyncImage(
-                        model = detail.picUrl.withPodcastCoverParam("400y400"),
+                        model = cachedCoverUrl,
                         contentDescription = detail.name,
-                        modifier = Modifier.size(132.dp).clip(RoundedCornerShape(RadiusCompact)),
+                        modifier = Modifier
+                            .size(132.dp)
+                            .onGloballyPositioned { coverBounds = it.toCoverPreviewBounds() }
+                            .clip(RoundedCornerShape(RadiusCompact))
+                            .pointerInput(cachedCoverUrl, detail.name) {
+                                detectTapGestures(
+                                    onLongPress = {
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        coverPreview.open(cachedCoverUrl, detail.name, coverBounds)
+                                    }
+                                )
+                            },
                         contentScale = ContentScale.Crop,
                         loading = { CoverPlaceholder() },
                         error = { CoverPlaceholder() }

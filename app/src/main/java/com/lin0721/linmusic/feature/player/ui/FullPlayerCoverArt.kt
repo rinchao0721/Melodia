@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.player.playSourceText
+import com.lin0721.linmusic.core.ui.components.CoverPreviewBounds
 import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
 import com.lin0721.linmusic.core.ui.components.SwipeQueueTarget
 import com.lin0721.linmusic.core.ui.components.SwipeToSkipCover
@@ -68,7 +69,8 @@ fun FullPlayerCoverArt(
     isSidebarFullscreen: Boolean = false,
     onPlaylistClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
-    onCancelSwipe: () -> Boolean = { false }
+    onCancelSwipe: () -> Boolean = { false },
+    onCoverLongClick: ((CoverPreviewBounds?) -> Unit)? = null
 ) {
     Column(
         modifier = modifier
@@ -105,7 +107,8 @@ fun FullPlayerCoverArt(
             elevation = 6.dp,
             modifier = Modifier.fillMaxWidth(),
             onCancelPending = onCancelSwipe,
-            queueTarget = queueTarget
+            queueTarget = queueTarget,
+            onLongClick = onCoverLongClick
         )
     }
 }

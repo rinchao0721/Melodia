@@ -5,6 +5,7 @@ import com.lin0721.linmusic.core.ui.components.rememberDragReorderState
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -38,7 +39,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -48,7 +52,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lin0721.linmusic.LocalBottomOverlayInset
 import com.lin0721.linmusic.core.ui.components.CreatePlaylistDialog
 import com.lin0721.linmusic.core.ui.components.EmptyState
+import com.lin0721.linmusic.core.ui.components.CoverPreviewBounds
+import com.lin0721.linmusic.core.ui.components.LocalCoverPreview
 import com.lin0721.linmusic.core.ui.components.MelodiaButton
+import com.lin0721.linmusic.core.ui.components.toCoverPreviewBounds
 import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
 import com.lin0721.linmusic.core.ui.components.SecondaryScreenScaffold
 import com.lin0721.linmusic.core.ui.interaction.pressable
@@ -214,8 +221,8 @@ fun LocalPlaylistScreen(
                                     }
                                 }
                             }
-                        ) {
-                            PlaylistHeroInfo(playlist)
+                        ) { coverUrl ->
+                            PlaylistHeroInfo(playlist, coverUrl)
                             if (playlist.tracks.isNotEmpty()) {
                                 Spacer(Modifier.height(MelodiaSpacing.md))
                                 LocalPlayShuffleButtons(
@@ -288,9 +295,33 @@ fun LocalPlaylistScreen(
 }
 
 @Composable
-private fun PlaylistHeroInfo(playlist: LocalPlaylist) {
+private fun PlaylistHeroInfo(playlist: LocalPlaylist, coverUrl: String?) {
+    val coverPreview = LocalCoverPreview.current
+    val haptic = LocalHapticFeedback.current
+    var coverBounds by remember { mutableStateOf<CoverPreviewBounds?>(null) }
+    // 1~3 首显示单封面时才允许查看大图，4 首以上为拼图
+    val singleCoverUrl = coverUrl?.takeIf { it.isNotBlank() && playlist.tracks.size in 1..3 }
     Row(verticalAlignment = Alignment.Bottom) {
-        LocalPlaylistCover(tracks = playlist.tracks, size = PlaylistHeroCoverSize)
+        LocalPlaylistCover(
+            tracks = playlist.tracks,
+            size = PlaylistHeroCoverSize,
+            modifier = Modifier
+                .onGloballyPositioned { coverBounds = it.toCoverPreviewBounds() }
+                .then(
+                    if (singleCoverUrl != null) {
+                        Modifier.pointerInput(singleCoverUrl, playlist.name) {
+                            detectTapGestures(
+                                onLongPress = {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    coverPreview.open(singleCoverUrl, playlist.name, coverBounds)
+                                }
+                            )
+                        }
+                    } else {
+                        Modifier
+                    }
+                )
+        )
         Spacer(Modifier.width(MelodiaSpacing.md))
         Column {
             Text(

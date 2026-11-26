@@ -5,6 +5,7 @@ import androidx.compose.runtime.compositionLocalOf
 import com.lin0721.linmusic.core.model.Track
 import com.lin0721.linmusic.core.share.ShareCardKind
 import com.lin0721.linmusic.core.source.MusicPlatform
+import com.lin0721.linmusic.core.ui.components.CoverPreviewBounds
 import com.lin0721.linmusic.desktop.ui.comments.CommentsHost
 import com.lin0721.linmusic.feature.profile.ui.FollowListMode
 
@@ -50,7 +51,8 @@ class DesktopNavigator(
     val openMessages: (peerUid: Long?, peerName: String, peerAvatar: String) -> Unit = { _, _, _ -> },
     val openCloud: () -> Unit = {},
     val openLocalPlaylist: (id: Long, name: String) -> Unit = { _, _ -> },
-    val openHome: () -> Unit = {}
+    val openHome: () -> Unit = {},
+    val openCoverPreview: (url: String?, title: String, sourceBounds: CoverPreviewBounds?) -> Unit = { _, _, _ -> }
 ) {
     val hasCloudAccount: Boolean get() = isLoggedIn || (isKugouEnabled && isKugouLoggedIn)
 }

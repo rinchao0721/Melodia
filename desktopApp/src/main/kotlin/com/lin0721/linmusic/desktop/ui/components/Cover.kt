@@ -1,6 +1,7 @@
 package com.lin0721.linmusic.desktop.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
@@ -8,15 +9,24 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.input.pointer.PointerIcon
+import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil3.compose.SubcomposeAsyncImage
+import com.lin0721.linmusic.core.ui.components.CoverPreviewBounds
+import com.lin0721.linmusic.core.ui.components.toCoverPreviewBounds
 import com.lin0721.linmusic.core.ui.theme.LocalMelodiaStyle
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
@@ -38,7 +48,8 @@ fun Cover(
     modifier: Modifier = Modifier,
     shape: Shape = RoundedCornerShape(4.dp),
     // 显示尺寸随拖动连续变化时传固定的请求尺寸，否则每帧换一个缩略图地址会不停重新加载
-    requestSize: Dp = size
+    requestSize: Dp = size,
+    onClick: ((CoverPreviewBounds?) -> Unit)? = null
 ) {
     // 皮肤指定封面圆角时覆盖圆角矩形，圆形与直角保持原样
     val coverRadius = LocalMelodiaStyle.current.coverRadius
@@ -47,7 +58,17 @@ fun Cover(
     } else {
         shape
     }
-    Box(modifier.size(size).clip(effectiveShape).background(DesktopColors.CoverPlaceholder)) {
+    var bounds by remember { mutableStateOf<CoverPreviewBounds?>(null) }
+    Box(
+        modifier
+            .size(size)
+            .onGloballyPositioned { bounds = it.toCoverPreviewBounds() }
+            .clip(effectiveShape)
+            .background(DesktopColors.CoverPlaceholder)
+            .then(
+                if (onClick != null) Modifier.pointerHoverIcon(PointerIcon.Hand).clickable { onClick(bounds) } else Modifier
+            )
+    ) {
         val model = sizedCoverUrl(url, (requestSize.value * 2).toInt())
         if (model != null) {
             SubcomposeAsyncImage(

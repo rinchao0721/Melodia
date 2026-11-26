@@ -14,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.lin0721.linmusic.core.ui.components.CoverPreviewBounds
 import com.lin0721.linmusic.core.ui.components.SwipeQueueTarget
 import com.lin0721.linmusic.core.ui.theme.uiTween
 import com.lin0721.linmusic.feature.podcast.ui.PodcastPlayerState
@@ -89,7 +90,8 @@ fun LazyListScope.fullPlayerPlaybackSection(
     baseCoverPadding: Dp = MelodiaSpacing.lg,
     itemGap: Dp = 0.dp,
     fillGap: Dp? = null,
-    fillTail: Dp = 0.dp
+    fillTail: Dp = 0.dp,
+    onCoverLongClick: ((CoverPreviewBounds?) -> Unit)? = null
 ) {
     fun fillGapItem(index: Int) {
         val gapHeight = fillGap ?: (if (itemGap > 0.dp) itemGap else null) ?: return
@@ -119,7 +121,8 @@ fun LazyListScope.fullPlayerPlaybackSection(
                 onToggleSidebarFullscreen = onToggleSidebarFullscreen,
                 isSidebarFullscreen = isSidebarFullscreen,
                 onPlaylistClick = onPlaylistClick,
-                onCancelSwipe = onCancelSwipe
+                onCancelSwipe = onCancelSwipe,
+                onCoverLongClick = onCoverLongClick
             )
         }
     }

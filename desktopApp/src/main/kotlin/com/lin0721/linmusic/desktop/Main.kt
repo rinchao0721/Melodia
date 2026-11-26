@@ -507,8 +507,12 @@ fun main(args: Array<String>) {
             undecorated = true,
             onPreviewKeyEvent = { event ->
                 if (event.key == Key.Escape && event.type == KeyEventType.KeyDown) {
-                    // 先收起全屏歌词；其后才轮到退出窗口全屏
+                    // 先关闭封面大图；再收起全屏歌词；其后才轮到退出窗口全屏
                     when {
+                        shellSession.state.coverPreview != null -> {
+                            shellSession.state.coverPreview = null
+                            true
+                        }
                         lyricsView.isOpen -> {
                             lyricsView.close()
                             true

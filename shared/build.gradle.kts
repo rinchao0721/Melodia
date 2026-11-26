@@ -47,6 +47,9 @@ kotlin {
             api(libs.androidx.room.runtime)
             api(libs.androidx.sqlite.bundled)
         }
+        commonTest.dependencies {
+            implementation(kotlin("test"))
+        }
         getByName("desktopMain").dependencies {
             implementation(libs.org.json)
         }

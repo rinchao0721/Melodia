@@ -446,9 +446,9 @@ fun MelodiaFullPlayerOverlay(
 // 全局自定义 Toast 提示悬浮层
 // ────────────────────────────────────────────────────────────────────────────
 @Composable
-fun MelodiaToastHost(toastMessage: String?) {
+fun MelodiaToastHost(toastMessage: String?, modifier: Modifier = Modifier) {
     Box(
-        modifier = Modifier.fillMaxSize(),
+        modifier = modifier.fillMaxSize(),
         contentAlignment = Alignment.BottomCenter
     ) {
         AnimatedVisibility(

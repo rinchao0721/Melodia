@@ -86,6 +86,8 @@ import com.lin0721.linmusic.core.plugin.LocalPlayerLayouts
 import com.lin0721.linmusic.core.plugin.PlayerLayoutArea
 import com.lin0721.linmusic.core.plugin.PlayerLayoutSpec
 import com.lin0721.linmusic.core.plugin.PlayerLayoutView
+import com.lin0721.linmusic.core.plugin.layoutShape
+import com.lin0721.linmusic.desktop.ui.components.Cover
 import com.lin0721.linmusic.desktop.ui.nowplaying.rememberLayoutCoverColors
 import com.lin0721.linmusic.desktop.ui.player.PlayerBarParts
 import com.lin0721.linmusic.desktop.ui.player.rememberPlaybackParts
@@ -694,6 +696,18 @@ private fun PluginLyricsContent(
         CompositionLocalProvider(LocalLayoutCoverColors provides coverColors, LocalLayoutEnvironment provides environment) {
             PlayerLayoutView(root, Modifier.fillMaxSize(), binding::prepare) { node, modifier ->
                 when (node.type) {
+                    LayoutNodeType.COVER -> BoxWithConstraints(modifier) {
+                        val size = node.maxSize?.let { minOf(maxWidth, it.dp) } ?: maxWidth
+                        Cover(
+                            track.artworkUri,
+                            size,
+                            shape = node.layoutShape(),
+                            requestSize = DesktopDimens.NowPlayingMaxWidth,
+                            onClick = track.artworkUri?.takeIf { it.isNotBlank() }?.let { url ->
+                                { bounds -> navigator.openCoverPreview(url, track.title, bounds) }
+                            }
+                        )
+                    }
                     LayoutNodeType.LYRICS_VIEW -> lyricsArea(modifier)
                     LayoutNodeType.COLLAPSE_BUTTON -> Box(modifier) { HeaderButton(MelodiaIcons.CloseFullscreen, "收起", onClose) }
                     LayoutNodeType.ACTIONS -> Row(modifier, verticalAlignment = Alignment.CenterVertically) {
