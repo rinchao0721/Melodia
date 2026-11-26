@@ -23,28 +23,30 @@ internal actual object FontPlatformLoader {
         return when (entry.source) {
             FontSource.BUILTIN -> when (entry.id) {
                 FONT_ID_BUILTIN_MONOSPACE -> FontFamily.Monospace
-                else -> null
+                else -> buildFromFiles(entry, directory)
             }
             FontSource.SYSTEM -> null
-            FontSource.IMPORTED, FontSource.SKIN -> {
-                val dir = directory ?: return null
-                if (entry.faces.isEmpty()) return null
-                val fonts = entry.faces.mapNotNull { face ->
-                    val file = File(dir, face.file)
-                    if (!file.isFile) return null
-                    try {
-                        Font(
-                            file = file,
-                            weight = FontWeight(face.weight.coerceIn(1, 1000)),
-                            style = if (face.italic) FontStyle.Italic else FontStyle.Normal
-                        )
-                    } catch (_: Throwable) {
-                        return null
-                    }
-                }
-                if (fonts.isEmpty()) null else FontFamily(fonts)
+            FontSource.IMPORTED, FontSource.SKIN -> buildFromFiles(entry, directory)
+        }
+    }
+
+    private fun buildFromFiles(entry: FontEntry, directory: File?): FontFamily? {
+        val dir = directory?.takeIf { it.isDirectory } ?: return null
+        if (entry.faces.isEmpty()) return null
+        val fonts = entry.faces.mapNotNull { face ->
+            val file = File(dir, face.file)
+            if (!file.isFile) return null
+            try {
+                Font(
+                    file = file,
+                    weight = FontWeight(face.weight.coerceIn(1, 1000)),
+                    style = if (face.italic) FontStyle.Italic else FontStyle.Normal
+                )
+            } catch (_: Throwable) {
+                return null
             }
         }
+        return if (fonts.isEmpty()) null else FontFamily(fonts)
     }
 
     actual fun listSystemFontNames(): List<String> = emptyList()

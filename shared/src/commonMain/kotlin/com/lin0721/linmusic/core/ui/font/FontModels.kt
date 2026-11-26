@@ -9,6 +9,7 @@ const val FONT_ID_SKIN = "skin"
 const val FONT_ID_FOLLOW = "follow"
 const val FONT_ID_BUILTIN_DEFAULT = "builtin:default"
 const val FONT_ID_BUILTIN_MONOSPACE = "builtin:monospace"
+const val FONT_ID_BUILTIN_FIGTREE = "builtin:figtree"
 
 enum class FontSource(val key: String) {
     IMPORTED("imported"),

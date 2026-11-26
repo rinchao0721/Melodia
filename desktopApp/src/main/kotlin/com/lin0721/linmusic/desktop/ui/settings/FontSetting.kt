@@ -49,6 +49,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
 import com.lin0721.linmusic.core.ui.font.FONT_ID_BUILTIN_DEFAULT
+import com.lin0721.linmusic.core.ui.font.FONT_ID_BUILTIN_FIGTREE
 import com.lin0721.linmusic.core.ui.font.FONT_ID_BUILTIN_MONOSPACE
 import com.lin0721.linmusic.core.ui.font.FONT_ID_FOLLOW
 import com.lin0721.linmusic.core.ui.font.FONT_ID_SKIN
@@ -88,6 +89,9 @@ internal fun FontSetting(
     val systemFonts by produceState(emptyList<FontEntry>()) {
         value = withContext(Dispatchers.IO) { fontRepository.listSystemFonts() }
     }
+    val figtreeFamily by produceState<FontFamily?>(null, fontRepository) {
+        value = withContext(Dispatchers.IO) { fontRepository.figtreeFamily() }
+    }
     var roleExpanded by remember { mutableStateOf(false) }
 
     suspend fun refreshInstalled() {
@@ -108,6 +112,7 @@ internal fun FontSetting(
                 selectedId = fontSettings.globalFontId,
                 includeSkin = true,
                 includeFollow = false,
+                figtreeFamily = figtreeFamily,
                 installedFonts = installedFonts,
                 systemFonts = systemFonts,
                 onSelect = { id -> scope.launch { settingsPreferences.setRoleFont(FontRole.GLOBAL, id) } }
@@ -142,6 +147,7 @@ internal fun FontSetting(
                                 selectedId = fontSettings.fontIdFor(role),
                                 includeSkin = false,
                                 includeFollow = true,
+                                figtreeFamily = figtreeFamily,
                                 installedFonts = installedFonts,
                                 systemFonts = systemFonts,
                                 onSelect = { id -> scope.launch { settingsPreferences.setRoleFont(role, id) } }
@@ -212,6 +218,7 @@ private fun FontPickerDropdown(
     selectedId: String,
     includeSkin: Boolean,
     includeFollow: Boolean,
+    figtreeFamily: FontFamily?,
     installedFonts: List<FontEntry>,
     systemFonts: List<FontEntry>,
     onSelect: (String) -> Unit
@@ -226,6 +233,7 @@ private fun FontPickerDropdown(
         when (selectedId) {
             FONT_ID_SKIN -> "跟随皮肤"
             FONT_ID_FOLLOW -> "跟随全局"
+            FONT_ID_BUILTIN_FIGTREE -> "Figtree"
             FONT_ID_BUILTIN_DEFAULT -> "系统默认"
             FONT_ID_BUILTIN_MONOSPACE -> "等宽字体"
             else -> installedFonts.firstOrNull { it.id == selectedId }?.name
@@ -266,6 +274,7 @@ private fun FontPickerDropdown(
             val builtins = buildList {
                 if (includeSkin) add(FONT_ID_SKIN to "跟随皮肤")
                 if (includeFollow) add(FONT_ID_FOLLOW to "跟随全局")
+                add(FONT_ID_BUILTIN_FIGTREE to "Figtree")
                 add(FONT_ID_BUILTIN_DEFAULT to "系统默认")
                 add(FONT_ID_BUILTIN_MONOSPACE to "等宽字体")
             }.filter { keyword.isEmpty() || it.second.contains(keyword, ignoreCase = true) }
@@ -274,10 +283,22 @@ private fun FontPickerDropdown(
 
             LazyColumn(Modifier.heightIn(max = 320.dp)) {
                 items(builtins, key = { "builtin:${it.first}" }) { (id, label) ->
-                    SimpleMenuItem(label, selected = id == selectedId, onClick = {
-                        onSelect(id)
-                        close()
-                    })
+                    val previewFamily = when (id) {
+                        FONT_ID_BUILTIN_FIGTREE -> figtreeFamily
+                        FONT_ID_BUILTIN_MONOSPACE -> FontFamily.Monospace
+                        else -> null
+                    }
+                    SimpleMenuItem(
+                        label,
+                        selected = id == selectedId,
+                        leading = previewFamily?.let { family ->
+                            { Text("Aa", color = DesktopColors.TextGray, fontSize = 12.sp, fontFamily = family) }
+                        },
+                        onClick = {
+                            onSelect(id)
+                            close()
+                        }
+                    )
                 }
                 items(filteredInstalled, key = { "installed:${it.id}" }) { entry ->
                     SimpleMenuItem(entry.name, selected = entry.id == selectedId, onClick = {

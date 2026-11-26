@@ -10,6 +10,7 @@ import com.lin0721.linmusic.core.network.OnlineStateProvider
 import com.lin0721.linmusic.core.network.AndroidResourceProvider
 import com.lin0721.linmusic.core.network.NetworkStateProvider
 import com.lin0721.linmusic.core.ui.skin.SkinImageCodec
+import com.lin0721.linmusic.core.ui.font.BuiltinFonts
 import com.lin0721.linmusic.core.ui.font.FontRepository
 import com.lin0721.linmusic.core.ui.font.FontStore
 import com.lin0721.linmusic.core.ui.skin.SkinRepository
@@ -63,12 +64,14 @@ val localModule = module {
     single<SkinImageCodec> { AndroidSkinImageCodec() }
     single { SkinStore(File(androidContext().filesDir, "skins"), get()) }
     single { FontStore(File(androidContext().filesDir, "fonts")) }
+    single { BuiltinFonts(File(androidContext().filesDir, "fonts/builtin")) }
     single { SkinRepository(get(), get(), fontStore = get()) }
     single {
         FontRepository(
             store = get(),
             fontSettingsFlow = get<SettingsPreferences>().fontSettings,
-            activeSkinFlow = get<SkinRepository>().activeSkin
+            activeSkinFlow = get<SkinRepository>().activeSkin,
+            builtinFonts = get()
         )
     }
     single { SourcePreferences(PreferencesStores.get(androidContext(), PreferencesStores.SOURCE)) }

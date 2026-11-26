@@ -24,12 +24,13 @@ private const val SYSTEM_FONT_ID_PREFIX = "system:"
 
 /**
  * 字体解析仓库：按优先级解析全局与各角色字体，并在 IO 线程构建与缓存 FontFamily。
- * 优先级：角色指定 > 全局 > 当前皮肤推荐字体 > ThemeFont 内置 > 系统默认(null)。
+ * 优先级：角色指定 > 全局 > 当前皮肤推荐字体（随包字体、MONOSPACE）> 内置 Figtree > 系统默认(null)。
  */
 class FontRepository(
     private val store: FontStore,
     fontSettingsFlow: Flow<FontSettings>,
     activeSkinFlow: Flow<Skin?>,
+    private val builtinFonts: BuiltinFonts? = null,
     scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
     ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val familyLoader: (FontEntry, File?) -> FontFamily? = FontPlatformLoader::buildFontFamily
@@ -112,33 +113,43 @@ class FontRepository(
     }
 
     private fun resolveSkinRecommended(skin: Skin?): FontFamily? {
-        if (skin == null) return null
-        if (skin.style.fontFaces.isNotEmpty()) {
-            val skinFontId = store.skinFontId(skin.id)
-            val entry = store.get(skinFontId)
-            if (entry != null) {
-                loadFontFamilyCached(entry, store.directoryOf(skinFontId))?.let { return it }
+        if (skin != null) {
+            if (skin.style.fontFaces.isNotEmpty()) {
+                val skinFontId = store.skinFontId(skin.id)
+                val entry = store.get(skinFontId)
+                if (entry != null) {
+                    loadFontFamilyCached(entry, store.directoryOf(skinFontId))?.let { return it }
+                }
+                // 若尚未登记到字体库（例如预设皮肤），直接从皮肤目录加载
+                val directEntry = FontEntry(
+                    id = skinFontId,
+                    name = skin.name,
+                    source = FontSource.SKIN,
+                    faces = skin.style.fontFaces,
+                    skinId = skin.id
+                )
+                loadFontFamilyCached(directEntry, skin.directory)?.let { return it }
             }
-            // 若尚未登记到字体库（例如预设皮肤），直接从皮肤目录加载
-            val directEntry = FontEntry(
-                id = skinFontId,
-                name = skin.name,
-                source = FontSource.SKIN,
-                faces = skin.style.fontFaces,
-                skinId = skin.id
-            )
-            loadFontFamilyCached(directEntry, skin.directory)?.let { return it }
+            if (skin.style.font == ThemeFont.MONOSPACE) {
+                return FontFamily.Monospace
+            }
         }
-        return when (skin.style.font) {
-            ThemeFont.DEFAULT -> null
-            ThemeFont.MONOSPACE -> FontFamily.Monospace
-        }
+        return loadBuiltinFigtree()
+    }
+
+    fun figtreeFamily(): FontFamily? = loadBuiltinFigtree()
+
+    private fun loadBuiltinFigtree(): FontFamily? {
+        val asset = builtinFonts?.figtree() ?: return null
+        return loadFontFamilyCached(asset.entry, asset.directory)
     }
 
     private fun loadById(role: FontRole, fontId: String): LoadResult {
         return when {
             fontId == FONT_ID_BUILTIN_DEFAULT -> LoadResult(null, ok = true)
             fontId == FONT_ID_BUILTIN_MONOSPACE -> LoadResult(FontFamily.Monospace, ok = true)
+            // 内置 Figtree 加载或解压失败时静默回退系统默认，不发送回退提示
+            fontId == FONT_ID_BUILTIN_FIGTREE -> LoadResult(loadBuiltinFigtree(), ok = true)
             fontId.startsWith(SYSTEM_FONT_ID_PREFIX) -> {
                 val systemName = fontId.removePrefix(SYSTEM_FONT_ID_PREFIX)
                 val entry = FontEntry(

@@ -55,6 +55,7 @@ import com.lin0721.linmusic.core.ui.components.MelodiaOutlinedButton
 import com.lin0721.linmusic.core.ui.components.MelodiaTextButton
 import com.lin0721.linmusic.core.ui.components.ToastManager
 import com.lin0721.linmusic.core.ui.font.FONT_ID_BUILTIN_DEFAULT
+import com.lin0721.linmusic.core.ui.font.FONT_ID_BUILTIN_FIGTREE
 import com.lin0721.linmusic.core.ui.font.FONT_ID_BUILTIN_MONOSPACE
 import com.lin0721.linmusic.core.ui.font.FONT_ID_FOLLOW
 import com.lin0721.linmusic.core.ui.font.FONT_ID_SKIN
@@ -338,6 +339,7 @@ private fun FontChoiceChips(
     val options = buildList {
         if (includeSkinOption) add(FONT_ID_SKIN to "跟随皮肤")
         if (includeFollowOption) add(FONT_ID_FOLLOW to "跟随全局")
+        add(FONT_ID_BUILTIN_FIGTREE to "Figtree")
         add(FONT_ID_BUILTIN_DEFAULT to "系统默认")
         add(FONT_ID_BUILTIN_MONOSPACE to "等宽")
         importedFonts.forEach { add(it.id to it.name) }
@@ -363,6 +365,7 @@ private fun resolveFontDisplayName(
 ): String = when (fontId) {
     FONT_ID_SKIN -> if (isGlobal) "跟随皮肤" else "跟随全局"
     FONT_ID_FOLLOW -> "跟随全局"
+    FONT_ID_BUILTIN_FIGTREE -> "Figtree"
     FONT_ID_BUILTIN_DEFAULT -> "系统默认"
     FONT_ID_BUILTIN_MONOSPACE -> "等宽"
     else -> importedFonts.firstOrNull { it.id == fontId }?.name ?: "默认"
