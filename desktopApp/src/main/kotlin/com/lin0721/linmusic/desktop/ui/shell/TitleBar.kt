@@ -381,25 +381,23 @@ internal fun WindowScope.TitleBar(
                         downloadNeedsAttention = downloadNeedsAttention,
                         onButtonClick = onTitleBarButtonClick
                     )
-                    if (!isLocalMode) {
-                        SearchBox(
-                            query = searchQuery,
-                            placeholder = searchPlaceholder,
-                            onQueryChange = onSearchQueryChange,
-                            onFocusChange = onSearchFocusChange,
-                            onBoundsChange = { bounds ->
-                                searchBoxBounds = bounds
-                                onSearchBoundsChange(bounds)
-                            },
-                            onMove = onSearchMove,
-                            onSubmit = onSearchSubmit,
-                            focusRequests = searchFocusRequests,
-                            isBrowseActive = isBrowseActive,
-                            onBrowseClick = onBrowseClick,
-                            enabled = !editMode,
-                            modifier = Modifier.weight(1f, fill = false)
-                        )
-                    }
+                    SearchBox(
+                        query = searchQuery,
+                        placeholder = if (isLocalMode) "搜索本地歌曲、专辑、歌手" else searchPlaceholder,
+                        onQueryChange = onSearchQueryChange,
+                        onFocusChange = onSearchFocusChange,
+                        onBoundsChange = { bounds ->
+                            searchBoxBounds = bounds
+                            onSearchBoundsChange(bounds)
+                        },
+                        onMove = onSearchMove,
+                        onSubmit = onSearchSubmit,
+                        focusRequests = searchFocusRequests,
+                        isBrowseActive = isBrowseActive,
+                        onBrowseClick = onBrowseClick,
+                        enabled = !editMode,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
                     TitleBarSlotRow(
                         slot = TitleBarSlot.CENTER_END,
                         buttons = displayLayout.centerEnd,

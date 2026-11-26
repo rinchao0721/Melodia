@@ -100,8 +100,7 @@ import com.lin0721.linmusic.desktop.ui.palette.extractCoverPaletteFromUrl
 import com.lin0721.linmusic.desktop.ui.palette.headerCoverBackground
 import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.source.MusicPlatform
-import com.lin0721.linmusic.desktop.data.local.LOCAL_ALL_TRACKS_ID
-import com.lin0721.linmusic.desktop.ui.components.DialogButton
+import com.lin0721.linmusic.desktop.data.local.LocalLibraryRepository
 import com.lin0721.linmusic.desktop.ui.playlist.DAILY_RECOMMEND_ID
 import com.lin0721.linmusic.desktop.ui.playlist.DAILY_RECOMMEND_NAME
 import com.lin0721.linmusic.feature.playlist.ui.KUGOU_DAILY_RECOMMEND_ID
@@ -110,7 +109,10 @@ import com.lin0721.linmusic.desktop.ui.podcast.PodcastTab
 import com.lin0721.linmusic.desktop.ui.podcast.PodcastTabActions
 import com.lin0721.linmusic.desktop.ui.shell.DesktopAppState
 import com.lin0721.linmusic.desktop.ui.shell.DesktopNavigator
+import com.lin0721.linmusic.desktop.ui.local.LocalLibraryDesktopPage
+import com.lin0721.linmusic.desktop.ui.local.LocalLibraryDesktopViewModel
 import com.lin0721.linmusic.desktop.ui.shell.LocalDesktopNavigator
+import org.koin.java.KoinJavaComponent.getKoin
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import com.lin0721.linmusic.feature.home.domain.HomeCardKind
 import com.lin0721.linmusic.feature.home.domain.HomeCardTarget
@@ -399,30 +401,12 @@ private fun HomeAllContent(
         HomeUiState.Loading -> HomeTabLoading()
         is HomeUiState.Error -> HomeTabError(state.message, viewModel::refreshHomeData)
         is HomeUiState.Success -> if (state.data.browsePlatform == MusicPlatform.LOCAL) {
-            val navigator = LocalDesktopNavigator.current
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Text(
-                        "本地模式",
-                        color = DesktopColors.TextPrimary,
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        "当前处于完全离线状态，仅展示本地音乐与已下载内容",
-                        color = DesktopColors.TextGray,
-                        fontSize = 13.sp
-                    )
-                    DialogButton(
-                        text = "打开本地音乐",
-                        onClick = { navigator.openPlaylist(LOCAL_ALL_TRACKS_ID, "全部本地歌曲") },
-                        primary = true
-                    )
-                }
-            }
+            val localVm = remember { getKoin().get<LocalLibraryDesktopViewModel>() }
+            val localRepo = remember { getKoin().get<LocalLibraryRepository>() }
+            LocalLibraryDesktopPage(
+                viewModel = localVm,
+                localLibrary = localRepo
+            )
         } else {
             HomeFeed(state.data, viewModel, listState, onPlaylistClick, onTileHover, Modifier)
         }

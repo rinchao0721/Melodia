@@ -68,13 +68,14 @@ import com.lin0721.linmusic.desktop.data.download.DesktopDownloadFolderScanner
 import com.lin0721.linmusic.desktop.data.download.DesktopDownloadPreferences
 import com.lin0721.linmusic.desktop.data.download.DesktopSongDownloader
 import com.lin0721.linmusic.core.localmusic.data.DesktopJsonImporter
+import com.lin0721.linmusic.core.localmusic.data.LocalLibraryRepository as SharedLocalLibraryRepository
 import com.lin0721.linmusic.core.localmusic.data.LocalMatchService
+import com.lin0721.linmusic.core.localmusic.data.LocalPlaylistRepository
 import com.lin0721.linmusic.core.localmusic.db.LocalMusicDatabase
 import com.lin0721.linmusic.core.localmusic.db.LocalMusicDatabaseFactory
 import com.lin0721.linmusic.desktop.data.local.LocalLibraryRepository
-import com.lin0721.linmusic.desktop.data.local.LocalLibraryStore
-import com.lin0721.linmusic.desktop.data.local.LocalMatcher
 import com.lin0721.linmusic.desktop.data.local.LocalScanner
+import com.lin0721.linmusic.desktop.ui.local.LocalLibraryDesktopViewModel
 import com.lin0721.linmusic.desktop.plugin.DesktopNativePluginHost
 import com.lin0721.linmusic.desktop.plugin.GraalLxPluginRuntime
 import com.lin0721.linmusic.desktop.plugin.GraalScriptSandboxFactory
@@ -324,15 +325,22 @@ val desktopPlatformModule = module {
     single { get<LocalMusicDatabase>().localPlaylistDao() }
     single { DesktopJsonImporter(get(), get()) }
     single { LocalMatchService(get()) }
+    single { SharedLocalLibraryRepository(trackDao = get()) }
+    single { LocalPlaylistRepository(playlistDao = get(), libraryRepository = get()) }
     // 启动即加载并后台扫描
     single(createdAtStart = true) {
         LocalLibraryRepository(
-            store = LocalLibraryStore(DesktopPaths.localLibraryFile),
+            sharedLibrary = get(),
+            sharedPlaylists = get(),
+            trackDao = get(),
+            playlistDao = get(),
+            jsonImporter = get(),
+            matchService = get(),
             scanner = LocalScanner { DesktopPaths.localCoverDir },
-            matcher = LocalMatcher(get()),
             downloadPreferences = get(),
             onlineState = get(),
-            scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
+            legacyJsonFile = DesktopPaths.localLibraryFile
         ).also { repository ->
             getOrNull<SongQualityCache>()?.warmIds(
                 repository.data.map { data -> data.tracks.mapNotNullTo(HashSet()) { it.songId } },
@@ -341,6 +349,7 @@ val desktopPlatformModule = module {
         }
     }
     single { LocalMusicActions(get(), get<PlaybackController>(), CoroutineScope(SupervisorJob() + Dispatchers.Main)) }
+    single { LocalLibraryDesktopViewModel(get(), get<PlaybackController>()) }
     // 启动即监听账号变化，退出登录时清空云盘数据与上传队列
     single(createdAtStart = true) { CloudLibrary(get(), get(), get(), get(), CoroutineScope(SupervisorJob() + Dispatchers.Main)) }
     single {

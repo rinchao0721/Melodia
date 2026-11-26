@@ -48,7 +48,9 @@ class DesktopNavigator(
     // 当前页面是否为一起听房间页，状态标识据此在打开与返回间切换
     val isListenTogetherOpen: Boolean = false,
     val openMessages: (peerUid: Long?, peerName: String, peerAvatar: String) -> Unit = { _, _, _ -> },
-    val openCloud: () -> Unit = {}
+    val openCloud: () -> Unit = {},
+    val openLocalPlaylist: (id: Long, name: String) -> Unit = { _, _ -> },
+    val openHome: () -> Unit = {}
 ) {
     val hasCloudAccount: Boolean get() = isLoggedIn || (isKugouEnabled && isKugouLoggedIn)
 }

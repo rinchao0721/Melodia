@@ -95,4 +95,11 @@ interface LocalPlaylistDao {
         insertEntries(orderedLocations.distinct().mapIndexed { index, loc -> LocalPlaylistTrackEntity(playlistId, loc, index) })
         touch(playlistId, now)
     }
+
+    @Transaction
+    suspend fun reorderPlaylists(orderedIds: List<Long>, now: Long) {
+        orderedIds.forEachIndexed { index, id ->
+            touch(id, now - index)
+        }
+    }
 }

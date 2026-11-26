@@ -4,7 +4,21 @@ import com.lin0721.linmusic.core.download.DownloadRecord
 import com.lin0721.linmusic.core.download.recognition.LocalAudioEntry
 import com.lin0721.linmusic.core.download.recognition.estimateBitrateKbps
 import com.lin0721.linmusic.core.download.recognition.guessAudioQuality
-import com.lin0721.linmusic.core.download.recognition.isContainerAudioExtension
+import com.lin0721.linmusic.core.localmusic.data.DesktopJsonImporter
+import com.lin0721.linmusic.core.localmusic.data.LocalMatchService
+import com.lin0721.linmusic.core.localmusic.data.LocalPlaylistRepository
+import com.lin0721.linmusic.core.localmusic.data.LocalLibraryRepository as SharedLocalLibraryRepository
+import com.lin0721.linmusic.core.localmusic.db.LocalPlaylistDao
+import com.lin0721.linmusic.core.localmusic.db.LocalTrackDao
+import com.lin0721.linmusic.core.localmusic.db.LocalTrackEntity
+import com.lin0721.linmusic.core.localmusic.db.toDomain
+import com.lin0721.linmusic.core.localmusic.domain.LocalMatchState as SharedMatchState
+import com.lin0721.linmusic.core.localmusic.domain.LocalPlaylist as SharedLocalPlaylist
+import com.lin0721.linmusic.core.localmusic.domain.LocalScanFilter as SharedScanFilter
+import com.lin0721.linmusic.core.localmusic.domain.LocalTrack as SharedLocalTrack
+import com.lin0721.linmusic.core.localmusic.domain.LocalTrackSource
+import com.lin0721.linmusic.core.localmusic.domain.folderPathOf
+import com.lin0721.linmusic.core.localmusic.platform.LocalMediaEntry
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.network.OnlineStateProvider
 import com.lin0721.linmusic.core.player.QueueItem
@@ -14,9 +28,7 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -26,6 +38,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -39,32 +52,32 @@ import java.text.Collator
 import java.util.Locale
 
 private const val TAG = "LocalLibrary"
-private const val SAVE_DEBOUNCE_MS = 500L
 private const val MATCH_INTERVAL_MS = 400L
 private const val SCAN_PROGRESS_STEP = 20
 private const val NAME_MAX_LENGTH = 40
 private val MATCHED_STATES = setOf(LocalMatchState.AUTO, LocalMatchState.MANUAL)
 
-// 本地音乐库：歌单、扫描索引、云端匹配；整库存一个 JSON
+// 桌面本地音乐协调器：底层读写全部委托给 shared Room 仓库
 class LocalLibraryRepository(
-    private val store: LocalLibraryStore,
+    val sharedLibrary: SharedLocalLibraryRepository,
+    val sharedPlaylists: LocalPlaylistRepository,
+    private val trackDao: LocalTrackDao,
+    private val playlistDao: LocalPlaylistDao,
+    private val jsonImporter: DesktopJsonImporter,
+    private val matchService: LocalMatchService,
     private val scanner: LocalScanner,
-    private val matcher: LocalMatcher,
     downloadPreferences: DesktopDownloadPreferences,
     private val onlineState: OnlineStateProvider,
     private val scope: CoroutineScope,
+    private val legacyJsonFile: File? = null,
+    private val loadFilter: suspend () -> LocalScanFilter = { LocalScanFilter() },
+    private val saveFilter: suspend (LocalScanFilter) -> Unit = {},
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val clock: () -> Long = System::currentTimeMillis
 ) {
-
     private val ready = CompletableDeferred<Unit>()
-    private val writeMutex = Mutex()
     private val scanMutex = Mutex()
-    private val saveRequests = Channel<Unit>(Channel.CONFLATED)
     private var matchJob: Job? = null
-
-    private val _data = MutableStateFlow(LocalLibraryData())
-    val data: StateFlow<LocalLibraryData> = _data.asStateFlow()
 
     private val records: StateFlow<List<DownloadRecord>> =
         downloadPreferences.records.stateIn(scope, SharingStarted.Eagerly, emptyList())
@@ -72,36 +85,71 @@ class LocalLibraryRepository(
     private val _scanState = MutableStateFlow<LocalScanState>(LocalScanState.Idle)
     val scanState: StateFlow<LocalScanState> = _scanState.asStateFlow()
 
-    private val view: StateFlow<LibraryView> = combine(_data, records) { data, records -> LibraryView(data, records, scanner) }
-        .flowOn(Dispatchers.Default)
-        .stateIn(scope, SharingStarted.Eagerly, LibraryView(LocalLibraryData(), emptyList(), scanner))
+    private val _builtinStates = MutableStateFlow<Map<Long, LocalBuiltinState>>(emptyMap())
+
+    private val sharedTracksFlow: StateFlow<List<SharedLocalTrack>> =
+        sharedLibrary.observeFilteredTracks().stateIn(scope, SharingStarted.Eagerly, emptyList())
+
+    private val sharedPlaylistsFlow: StateFlow<List<SharedLocalPlaylist>> =
+        sharedPlaylists.observePlaylists().stateIn(scope, SharingStarted.Eagerly, emptyList())
+
+    val data: StateFlow<LocalLibraryData> = combine(
+        sharedTracksFlow,
+        sharedPlaylistsFlow,
+        sharedLibrary.scanFilter,
+        _builtinStates
+    ) { tracks, playlists, filter, builtins ->
+        LocalLibraryData(
+            playlists = playlists.map { it.toDesktopPlaylist() },
+            tracks = tracks.map { it.toDesktopTrack() },
+            filter = LocalScanFilter(filter.minDurationSec, filter.excludedFolders.toList()),
+            builtins = builtins.values.toList()
+        )
+    }.stateIn(scope, SharingStarted.Eagerly, LocalLibraryData())
+
+    private val view: StateFlow<LibraryView> = combine(
+        sharedTracksFlow,
+        sharedPlaylistsFlow,
+        records,
+        _builtinStates
+    ) { tracks, playlists, downloadRecords, builtins ->
+        LibraryView(
+            tracks = tracks.map { it.toDesktopTrack() },
+            playlists = playlists,
+            records = downloadRecords,
+            builtins = builtins,
+            scanner = scanner
+        )
+    }.flowOn(Dispatchers.Default)
+        .stateIn(scope, SharingStarted.Eagerly, LibraryView(emptyList(), emptyList(), emptyList(), emptyMap(), scanner))
 
     val summaries: StateFlow<List<LocalPlaylistSummary>> = view.map { it.summaries }
         .stateIn(scope, SharingStarted.Eagerly, emptyList())
 
-    // 歌词与播放按 songId 反查本地文件
     @Volatile
     private var pathIndex: Map<Long, String> = emptyMap()
 
     init {
         scope.launch {
-            _data.value = withContext(ioDispatcher) { store.load() }
+            val imported = legacyJsonFile?.let { file ->
+                withContext(ioDispatcher) { jsonImporter.importIfNeeded(file) }
+            }
+            val initialFilter = if (imported?.imported == true && imported.filter != null) {
+                val f = imported.filter!!
+                LocalScanFilter(f.minDurationSec, f.excludedFolders.toList()).also { saveFilter(it) }
+            } else {
+                loadFilter()
+            }
+            sharedLibrary.updateScanFilter {
+                SharedScanFilter(initialFilter.minDurationSec, initialFilter.excludedFolders.toSet())
+            }
             ready.complete(Unit)
             rescan()
         }
-        scope.launch {
-            while (true) {
-                saveRequests.receive()
-                delay(SAVE_DEBOUNCE_MS)
-                val snapshot = _data.value
-                withContext(ioDispatcher) { store.save(snapshot) }
-            }
-        }
         scope.launch { view.collect { pathIndex = it.pathIndex } }
-        // 新下载完成后补读标签，不必整库重扫
         scope.launch {
             records.drop(1).collect { list ->
-                val known = _data.value.tracks.mapTo(HashSet()) { it.path.lowercase() }
+                val known = trackDao.getAllLocations().mapTo(HashSet()) { it.lowercase() }
                 val fresh = list.map { normalizePath(it.mediaStoreUri) }.filter { it.lowercase() !in known }
                 if (fresh.isNotEmpty()) refreshPaths(fresh)
             }
@@ -113,28 +161,27 @@ class LocalLibraryRepository(
 
     fun tracksOf(playlistId: Long): Flow<List<LocalTrack>> = view.map { it.tracksOf(playlistId) }.distinctUntilChanged()
 
-    // 页面首帧直接取当前值，避免先闪一下空列表
     fun currentTracks(playlistId: Long): List<LocalTrack> = view.value.tracksOf(playlistId)
 
     fun playlist(playlistId: Long): Flow<LocalPlaylistSummary?> =
-        view.map { view -> view.summaries.firstOrNull { it.id == playlistId } }.distinctUntilChanged()
+        view.map { v -> v.summaries.firstOrNull { it.id == playlistId } }.distinctUntilChanged()
 
     fun coverUri(track: LocalTrack): String? = scanner.coverUri(track)
 
     fun pathForSongId(songId: Long): String? = pathIndex[songId]
 
-    // 已匹配网易歌曲的本地文件，供下载前识别已有文件
-    fun matchedEntries(): List<LocalAudioEntry> = _data.value.tracks
-        .filter { it.songId != null && it.matchState in MATCHED_STATES }
+    fun matchedEntries(): List<LocalAudioEntry> = sharedTracksFlow.value
+        .filter { it.songId != null && it.matchState in setOf(SharedMatchState.AUTO, SharedMatchState.MANUAL) }
         .map { track ->
+            val path = track.path.orEmpty()
             LocalAudioEntry(
-                uri = track.path,
+                uri = path,
                 title = track.title,
                 artist = track.artist,
                 durationMs = track.durationMs,
-                sizeBytes = track.size,
-                quality = track.resolvedQuality()
-                    ?: guessAudioQuality(File(track.path).extension, estimateBitrateKbps(track.size, track.durationMs)),
+                sizeBytes = track.sizeBytes,
+                quality = track.qualityLevel
+                    ?: guessAudioQuality(File(path).extension, estimateBitrateKbps(track.sizeBytes, track.durationMs)),
                 songIdTag = track.songId
             )
         }
@@ -147,33 +194,22 @@ class LocalLibraryRepository(
     // ─── 歌单 ───
 
     suspend fun createPlaylist(name: String, folder: File? = null): Long {
-        val folderPath = folder?.let { normalizePath(it.path) }
+        ready.await()
+        val folderPath = folder?.invariantSeparatorsPath?.trimEnd('/')
         val finalName = name.trim().ifBlank { folder?.name.orEmpty() }.ifBlank { "本地歌单" }.take(NAME_MAX_LENGTH)
-        var createdId = 0L
-        mutate { data ->
-            val id = maxOf(clock(), (data.playlists.maxOfOrNull { it.id } ?: 0L) + 1)
-            createdId = id
-            data.copy(
-                playlists = data.playlists + LocalPlaylist(
-                    id = id,
-                    name = finalName,
-                    createdAt = clock(),
-                    folders = listOfNotNull(folderPath)
-                )
-            )
+        val createdId = sharedPlaylists.createPlaylist(finalName)
+        if (folderPath != null) {
+            sharedPlaylists.addFolderSource(createdId, folderPath)
+            rescan()
         }
-        if (folderPath != null) rescan()
         return createdId
     }
 
-    fun addFolder(playlistId: Long, folder: File) = launchMutation(rescanAfter = true) { data ->
-        val path = normalizePath(folder.path)
-        data.updatePlaylist(playlistId) { playlist ->
-            if (playlist.folders.any { samePath(it, path) }) {
-                playlist
-            } else {
-                playlist.copy(folders = playlist.folders + path, removed = playlist.removed.filterNot { isUnder(it, path) })
-            }
+    fun addFolder(playlistId: Long, folder: File) {
+        scope.launch {
+            ready.await()
+            sharedPlaylists.addFolderSource(playlistId, folder.invariantSeparatorsPath.trimEnd('/'))
+            rescan()
         }
     }
 
@@ -181,171 +217,211 @@ class LocalLibraryRepository(
         val paths = files.filter { it.isFile && isAudioFile(it) }.map { normalizePath(it.path) }
         if (paths.isEmpty()) return
         scope.launch {
-            mutate { data ->
-                data.updatePlaylist(playlistId) { playlist ->
-                    val added = paths.filter { path -> playlist.files.none { samePath(it, path) } }
-                    playlist.copy(files = playlist.files + added, removed = playlist.removed.filterNot { r -> paths.any { samePath(it, r) } })
-                }
-            }
+            ready.await()
             refreshPaths(paths)
+            sharedPlaylists.addTracks(playlistId, paths)
         }
     }
 
-    fun removeFolder(playlistId: Long, folder: String) = launchMutation { data ->
-        data.updatePlaylist(playlistId) { playlist -> playlist.copy(folders = playlist.folders.filterNot { samePath(it, folder) }) }
-            .pruneUnreferenced()
+    fun removeFolder(playlistId: Long, folder: String) {
+        scope.launch {
+            ready.await()
+            sharedPlaylists.removeFolderSource(playlistId, normalizePath(folder))
+        }
     }
 
     fun rename(playlistId: Long, name: String) {
         val trimmed = name.trim().take(NAME_MAX_LENGTH)
         if (trimmed.isEmpty()) return
-        launchMutation { data -> data.updatePlaylist(playlistId) { it.copy(name = trimmed) } }
-    }
-
-    fun setPinned(playlistId: Long, pinned: Boolean) = launchMutation { data ->
-        if (playlistId <= 0L) {
-            data.updateBuiltin(playlistId) { it.copy(isPinned = pinned) }
-        } else {
-            data.updatePlaylist(playlistId) { it.copy(isPinned = pinned) }
+        scope.launch {
+            ready.await()
+            sharedPlaylists.renamePlaylist(playlistId, trimmed)
         }
     }
 
-    fun markPlayed(playlistId: Long) = launchMutation { data ->
-        val now = clock()
-        if (playlistId <= 0L) {
-            data.updateBuiltin(playlistId) { it.copy(lastPlayedAt = now) }
-        } else {
-            data.updatePlaylist(playlistId) { it.copy(lastPlayedAt = now) }
+    fun setPinned(playlistId: Long, pinned: Boolean) {
+        scope.launch {
+            ready.await()
+            if (playlistId <= 0L) {
+                val prev = _builtinStates.value[playlistId] ?: LocalBuiltinState(playlistId)
+                _builtinStates.value = _builtinStates.value + (playlistId to prev.copy(isPinned = pinned))
+            } else {
+                sharedPlaylists.setPinned(playlistId, pinned)
+            }
         }
     }
 
-    // 只删记录，不动磁盘文件
-    fun removePlaylist(playlistId: Long) = launchMutation { data ->
-        data.copy(playlists = data.playlists.filterNot { it.id == playlistId }).pruneUnreferenced()
+    fun markPlayed(playlistId: Long) {
+        scope.launch {
+            ready.await()
+            if (playlistId <= 0L) {
+                val prev = _builtinStates.value[playlistId] ?: LocalBuiltinState(playlistId)
+                _builtinStates.value = _builtinStates.value + (playlistId to prev.copy(lastPlayedAt = clock()))
+            } else {
+                sharedPlaylists.markPlayed(playlistId)
+            }
+        }
     }
 
-    fun removeTracks(playlistId: Long, paths: Collection<String>) = launchMutation { data ->
-        data.updatePlaylist(playlistId) { playlist ->
-            val fromFolders = paths.filter { path -> playlist.folders.any { isUnder(path, it) } }
-            playlist.copy(
-                files = playlist.files.filterNot { file -> paths.any { samePath(it, file) } },
-                removed = (playlist.removed + fromFolders).distinctBy { it.lowercase() }
-            )
-        }.pruneUnreferenced()
+    fun removePlaylist(playlistId: Long) {
+        scope.launch {
+            ready.await()
+            sharedPlaylists.deletePlaylist(playlistId)
+        }
+    }
+
+    fun removeTracks(playlistId: Long, paths: Collection<String>) {
+        scope.launch {
+            ready.await()
+            paths.forEach { path ->
+                sharedPlaylists.removeTrack(playlistId, normalizePath(path))
+            }
+        }
     }
 
     // ─── 扫描与过滤 ───
 
-    fun updateFilter(filter: LocalScanFilter) = launchMutation(rescanAfter = true) { data ->
-        data.copy(
-            filter = filter.copy(
-                minDurationSec = filter.minDurationSec.coerceAtLeast(0),
-                excludedFolders = filter.excludedFolders.map(::normalizePath).distinctBy { it.lowercase() }
-            )
+    fun updateFilter(filter: LocalScanFilter) {
+        val normalized = filter.copy(
+            minDurationSec = filter.minDurationSec.coerceAtLeast(0),
+            excludedFolders = filter.excludedFolders.map(::normalizePath).distinctBy { it.lowercase() }
         )
+        scope.launch {
+            ready.await()
+            sharedLibrary.updateScanFilter {
+                SharedScanFilter(normalized.minDurationSec, normalized.excludedFolders.toSet())
+            }
+            saveFilter(normalized)
+            rescan()
+        }
     }
 
     fun rescan() {
         scope.launch { scanMutex.withLock { scanAll() } }
     }
 
-    private suspend fun scanAll() {
-        ready.await()
-        val snapshot = _data.value
-        val downloads = records.value.associateBy { normalizePath(it.mediaStoreUri).lowercase() }
-        val sources = withContext(ioDispatcher) {
-            val paths = LinkedHashMap<String, String>()
-            fun add(path: String) {
-                paths.putIfAbsent(path.lowercase(), path)
-            }
-            snapshot.playlists.forEach { playlist ->
-                playlist.folders.forEach { folder -> scanner.collectFiles(folder, snapshot.filter.excludedFolders).forEach(::add) }
-                playlist.files.forEach { add(normalizePath(it)) }
-            }
-            records.value.forEach { add(normalizePath(it.mediaStoreUri)) }
-            paths.values.toList()
-        }
-        val needsContainerQualityRefresh = snapshot.qualityVersion < CURRENT_LOCAL_QUALITY_VERSION
-        val previous = snapshot.tracks.associateBy { it.path.lowercase() }
-        val scanned = ArrayList<LocalTrack>(sources.size)
-        _scanState.value = LocalScanState.Scanning(0, sources.size)
-        try {
+    fun refreshPaths(paths: List<String>) {
+        if (paths.isEmpty()) return
+        scope.launch {
+            ready.await()
+            val normalized = paths.map(::normalizePath).distinctBy { it.lowercase() }
+            val existingByLoc = trackDao.getAll().associateBy { it.location.lowercase() }
+            val downloads = records.value.associateBy { normalizePath(it.mediaStoreUri).lowercase() }
+            val upserts = ArrayList<LocalTrackEntity>(normalized.size)
             withContext(ioDispatcher) {
-                sources.forEachIndexed { index, path ->
-                    ensureActive()
-                    val prevTrack = previous[path.lowercase()]?.let { prev ->
-                        if (needsContainerQualityRefresh && isContainerAudioExtension(File(path).extension)) {
-                            prev.copy(quality = null)
-                        } else {
-                            prev
-                        }
-                    }
-                    val track = runCatching { scanner.refresh(path, prevTrack) }
-                        .onFailure { AppLogger.w(TAG, "读取失败 $path", it) }
-                        .getOrNull()
-                    if (track != null) scanned += track.withDownload(downloads[path.lowercase()])
-                    if (index % SCAN_PROGRESS_STEP == 0) _scanState.value = LocalScanState.Scanning(index + 1, sources.size)
+                for (path in normalized) {
+                    val file = File(path)
+                    if (!file.isFile) continue
+                    val prev = existingByLoc[path.lowercase()]?.toDesktopTrack()
+                    val scanned = scanner.refresh(path, prev) ?: continue
+                    val dl = downloads[path.lowercase()]
+                    upserts += scanned.toEntity(
+                        source = if (dl != null) LocalTrackSource.DOWNLOAD else LocalTrackSource.EXTERNAL,
+                        overrideSongId = dl?.songId ?: scanned.songId,
+                        overrideMatchState = if (dl != null) SharedMatchState.MANUAL else scanned.matchState.toShared()
+                    )
                 }
             }
-            mutate { data ->
-                data.copy(
-                    tracks = mergeScanned(scanned, data.tracks),
-                    qualityVersion = CURRENT_LOCAL_QUALITY_VERSION
-                )
+            if (upserts.isNotEmpty()) {
+                trackDao.upsert(upserts)
             }
-            withContext(ioDispatcher) { scanner.pruneCovers(_data.value.tracks) }
-        } finally {
-            _scanState.value = LocalScanState.Idle
+            if (onlineState.isOnline()) startAutoMatch()
         }
-        startAutoMatch()
     }
 
-    private suspend fun refreshPaths(paths: List<String>) = scanMutex.withLock {
+    private suspend fun scanAll() {
         ready.await()
-        val downloads = records.value.associateBy { normalizePath(it.mediaStoreUri).lowercase() }
-        val previous = _data.value.tracks.associateBy { it.path.lowercase() }
-        val refreshed = withContext(ioDispatcher) {
-            paths.mapNotNull { path ->
-                runCatching { scanner.refresh(path, previous[path.lowercase()]) }.getOrNull()
-                    ?.withDownload(downloads[path.lowercase()])
+        val playlists = playlistDao.getPlaylists()
+        val currentPlaylists = sharedPlaylists.observePlaylists().first()
+        val folderPaths = currentPlaylists.flatMap { it.folderSources }.distinct()
+        val manualLocations = currentPlaylists.flatMap { p -> p.tracks.mapNotNull { it.path } }
+        val downloadList = records.value
+        val downloadMap = downloadList.associateBy { normalizePath(it.mediaStoreUri).lowercase() }
+        val excluded = sharedLibrary.scanFilter.value.excludedFolders
+
+        val existingByPath = trackDao.getAll().associateBy { it.location.lowercase() }
+
+        val candidateFiles = withContext(ioDispatcher) {
+            val collected = LinkedHashMap<String, File>()
+            for (folder in folderPaths) {
+                val root = File(folder)
+                if (!root.isDirectory) continue
+                root.walkTopDown()
+                    .onEnter { dir -> excluded.none { isUnder(dir.path, it) } }
+                    .filter { it.isFile && isAudioFile(it) }
+                    .forEach { file ->
+                        val norm = normalizePath(file.path)
+                        collected.putIfAbsent(norm.lowercase(), file)
+                    }
+            }
+            for (loc in manualLocations) {
+                val file = File(loc)
+                if (file.isFile) collected.putIfAbsent(normalizePath(loc).lowercase(), file)
+            }
+            for (dl in downloadList) {
+                val file = File(normalizePath(dl.mediaStoreUri))
+                if (file.isFile) collected.putIfAbsent(normalizePath(file.path).lowercase(), file)
+            }
+            collected.values.toList()
+        }
+
+        _scanState.value = LocalScanState.Scanning(0, candidateFiles.size)
+        val entries = ArrayList<LocalMediaEntry>(candidateFiles.size)
+        withContext(ioDispatcher) {
+            candidateFiles.forEachIndexed { index, file ->
+                val norm = normalizePath(file.path)
+                val prev = existingByPath[norm.lowercase()]?.toDesktopTrack()
+                val scanned = scanner.refresh(norm, prev)
+                if (scanned != null) {
+                    val dl = downloadMap[norm.lowercase()]
+                    entries += LocalMediaEntry(
+                        location = scanned.path,
+                        mediaStoreId = null,
+                        title = scanned.title,
+                        artist = scanned.artist,
+                        album = scanned.album,
+                        albumArtist = null,
+                        year = scanned.year,
+                        trackNumber = scanned.trackNumber,
+                        durationMs = scanned.durationMs,
+                        sizeBytes = scanned.size,
+                        path = scanned.path,
+                        dateAddedMs = scanned.lastModified,
+                        dateModifiedMs = scanned.lastModified,
+                        qualityLevel = scanned.quality,
+                        hasEmbeddedCover = scanned.hasCover,
+                        source = if (dl != null) LocalTrackSource.DOWNLOAD else LocalTrackSource.EXTERNAL
+                    )
+                }
+                if ((index + 1) % SCAN_PROGRESS_STEP == 0 || index == candidateFiles.lastIndex) {
+                    _scanState.value = LocalScanState.Scanning(index + 1, candidateFiles.size)
+                }
             }
         }
-        if (refreshed.isEmpty()) return@withLock
-        mutate { data ->
-            val byPath = refreshed.associateBy { it.path.lowercase() }
-            val kept = data.tracks.filterNot { it.path.lowercase() in byPath }
-            data.copy(tracks = kept + refreshed)
-        }
-        startAutoMatch()
-    }
-
-    // 扫描期间手动匹配、改标签等改动以最新记录为准
-    private fun mergeScanned(scanned: List<LocalTrack>, latest: List<LocalTrack>): List<LocalTrack> {
-        val latestByPath = latest.associateBy { it.path.lowercase() }
-        return scanned.map { track ->
-            val current = latestByPath[track.path.lowercase()] ?: return@map track
-            when {
-                current.lastModified > track.lastModified -> current
-                track.matchState == LocalMatchState.MANUAL && track.songId != null -> track
-                else -> track.copy(songId = current.songId, matchState = current.matchState)
+        sharedLibrary.syncEntries(entries)
+        // 下载曲目自动绑定 downloadRecord.songId
+        for (dl in downloadList) {
+            val norm = normalizePath(dl.mediaStoreUri)
+            val entity = trackDao.getByLocation(norm)
+            if (entity != null && entity.songId != dl.songId) {
+                trackDao.updateMatch(norm, SharedMatchState.MANUAL.name, dl.songId)
             }
         }
+        _scanState.value = LocalScanState.Idle
+        if (onlineState.isOnline() && playlists.isNotEmpty()) startAutoMatch()
     }
 
-    // 下载记录自带网易 songId，视为已关联
-    private fun LocalTrack.withDownload(record: DownloadRecord?): LocalTrack =
-        if (record == null) this else copy(songId = record.songId, matchState = LocalMatchState.MANUAL)
+    // ─── 标签编辑 ───
 
-    // 按扫描设置的排除规则递归收集文件夹里的音频
-    suspend fun audioFilesIn(folder: File): List<File> = withContext(ioDispatcher) {
-        scanner.collectFiles(folder.path, _data.value.filter.excludedFolders).map(::File)
-    }
-
-    // ─── 标签 ───
+    fun audioFilesIn(folder: File): List<File> =
+        scanner.collectFiles(folder.path, sharedLibrary.scanFilter.value.excludedFolders.toList()).map(::File)
 
     fun readEditableTags(path: String): LocalTagEdit? = LocalTagIo.readEditable(File(path))
 
-    suspend fun updateTags(path: String, edit: LocalTagEdit, cover: CoverChange): Result<Unit> {
+    suspend fun updateTags(path: String, edit: LocalTagEdit, cover: CoverChange): Result<Unit> =
+        writeTags(path, edit, cover)
+
+    suspend fun writeTags(path: String, edit: LocalTagEdit, cover: CoverChange): Result<Unit> {
         val result = withContext(ioDispatcher) { LocalTagIo.write(File(path), edit, cover) }
         if (result.isSuccess) refreshPaths(listOf(path))
         return result
@@ -353,17 +429,22 @@ class LocalLibraryRepository(
 
     // ─── 云端匹配 ───
 
-    suspend fun searchCandidates(keyword: String) = matcher.search(keyword)
+    suspend fun searchCandidates(keyword: String) = matchService.search(keyword)
 
-    // 下载的歌曲以下载记录的 songId 为准，不提供手动匹配
     fun isDownloadedFile(path: String): Boolean = records.value.any { samePath(normalizePath(it.mediaStoreUri), path) }
 
-    fun setManualMatch(path: String, songId: Long) = launchMutation { data ->
-        data.updateTrack(path) { it.copy(songId = songId, matchState = LocalMatchState.MANUAL) }
+    fun setManualMatch(path: String, songId: Long) {
+        scope.launch {
+            ready.await()
+            trackDao.updateMatch(normalizePath(path), SharedMatchState.MANUAL.name, songId)
+        }
     }
 
-    fun detachMatch(path: String) = launchMutation { data ->
-        data.updateTrack(path) { it.copy(songId = null, matchState = LocalMatchState.DETACHED) }
+    fun detachMatch(path: String) {
+        scope.launch {
+            ready.await()
+            trackDao.updateMatch(normalizePath(path), SharedMatchState.DETACHED.name, null)
+        }
     }
 
     private fun startAutoMatch() {
@@ -371,99 +452,132 @@ class LocalLibraryRepository(
         matchJob = scope.launch {
             ready.await()
             val downloads = records.value.mapTo(HashSet()) { normalizePath(it.mediaStoreUri).lowercase() }
-            val pending = _data.value.tracks
-                .filter { it.matchState == LocalMatchState.PENDING && it.path.lowercase() !in downloads }
-                .map { it.path }
-            for (path in pending) {
+            val pending = trackDao.getAll()
+                .map { it.toDomain() }
+                .filter { it.matchState == SharedMatchState.PENDING && (it.path ?: "").lowercase() !in downloads }
+            for (track in pending) {
                 if (!isActive || !onlineState.isOnline()) break
-                val track = _data.value.tracks.firstOrNull { it.path == path } ?: continue
-                if (track.matchState != LocalMatchState.PENDING) continue
-                if (!LocalMatcher.isMatchable(track)) {
-                    mutate { data -> data.updatePendingMatch(path, null) }
+                if (!LocalMatchService.isMatchable(track)) {
+                    trackDao.updateMatch(track.location, SharedMatchState.NOT_FOUND.name, null)
                     continue
                 }
-                val result = matcher.findMatch(track)
+                val result = matchService.findMatch(track)
                 if (result.isFailure) {
                     AppLogger.w(TAG, "自动匹配中断", result.exceptionOrNull())
                     break
                 }
                 val matchedId = result.getOrNull()?.id
-                mutate { data -> data.updatePendingMatch(path, matchedId) }
+                val state = if (matchedId != null) SharedMatchState.AUTO else SharedMatchState.NOT_FOUND
+                trackDao.updateMatch(track.location, state.name, matchedId)
                 delay(MATCH_INTERVAL_MS)
             }
         }
     }
-
-    private fun LocalLibraryData.updatePendingMatch(path: String, songId: Long?): LocalLibraryData =
-        updateTrack(path) { track ->
-            if (track.matchState != LocalMatchState.PENDING) {
-                track
-            } else {
-                track.copy(songId = songId, matchState = if (songId != null) LocalMatchState.AUTO else LocalMatchState.NOT_FOUND)
-            }
-        }
-
-    // ─── 写入 ───
-
-    private fun launchMutation(rescanAfter: Boolean = false, transform: (LocalLibraryData) -> LocalLibraryData) {
-        scope.launch {
-            mutate(transform)
-            if (rescanAfter) rescan()
-        }
-    }
-
-    private suspend fun mutate(transform: (LocalLibraryData) -> LocalLibraryData) {
-        ready.await()
-        writeMutex.withLock {
-            val current = _data.value
-            val updated = transform(current)
-            if (updated == current) return
-            _data.value = updated
-            saveRequests.trySend(Unit)
-        }
-    }
-
-    private fun LocalLibraryData.updatePlaylist(id: Long, transform: (LocalPlaylist) -> LocalPlaylist): LocalLibraryData =
-        copy(playlists = playlists.map { if (it.id == id) transform(it) else it })
-
-    private fun LocalLibraryData.updateBuiltin(id: Long, transform: (LocalBuiltinState) -> LocalBuiltinState): LocalLibraryData {
-        val existing = builtins.firstOrNull { it.id == id } ?: LocalBuiltinState(id)
-        return copy(builtins = builtins.filterNot { it.id == id } + transform(existing))
-    }
-
-    private fun LocalLibraryData.updateTrack(path: String, transform: (LocalTrack) -> LocalTrack): LocalLibraryData =
-        copy(tracks = tracks.map { if (samePath(it.path, path)) transform(it) else it })
-
-    // 不再被任何歌单或下载记录引用的曲目从索引移除
-    private fun LocalLibraryData.pruneUnreferenced(): LocalLibraryData {
-        val downloads = records.value.mapTo(HashSet()) { normalizePath(it.mediaStoreUri).lowercase() }
-        val kept = tracks.filter { track ->
-            track.path.lowercase() in downloads || playlists.any { it.references(track.path) }
-        }
-        return if (kept.size == tracks.size) this else copy(tracks = kept)
-    }
 }
 
-internal fun LocalPlaylist.references(path: String): Boolean =
-    files.any { samePath(it, path) } || folders.any { isUnder(path, it) }
+internal fun SharedLocalTrack.toDesktopTrack(): LocalTrack = LocalTrack(
+    path = path ?: location,
+    title = title,
+    artist = artist,
+    album = album.orEmpty(),
+    year = year ?: 0,
+    trackNumber = trackNumber ?: 0,
+    durationMs = durationMs,
+    size = sizeBytes,
+    lastModified = dateModifiedMs,
+    hasCover = hasEmbeddedCover,
+    songId = songId,
+    matchState = when (matchState) {
+        SharedMatchState.PENDING -> LocalMatchState.PENDING
+        SharedMatchState.AUTO -> LocalMatchState.AUTO
+        SharedMatchState.MANUAL -> LocalMatchState.MANUAL
+        SharedMatchState.NOT_FOUND -> LocalMatchState.NOT_FOUND
+        SharedMatchState.DETACHED -> LocalMatchState.DETACHED
+    },
+    quality = qualityLevel
+)
 
-// 由库数据与下载记录推导出的只读视图
+private fun LocalTrackEntity.toDesktopTrack(): LocalTrack = LocalTrack(
+    path = location,
+    title = title,
+    artist = artist,
+    album = album.orEmpty(),
+    year = year ?: 0,
+    trackNumber = trackNumber ?: 0,
+    durationMs = durationMs,
+    size = sizeBytes,
+    lastModified = dateModifiedMs,
+    hasCover = hasEmbeddedCover,
+    songId = songId,
+    matchState = runCatching { LocalMatchState.valueOf(matchState) }.getOrDefault(LocalMatchState.PENDING),
+    quality = qualityLevel
+)
+
+private fun LocalTrack.toEntity(
+    source: LocalTrackSource,
+    overrideSongId: Long? = songId,
+    overrideMatchState: SharedMatchState = matchState.toShared()
+): LocalTrackEntity = LocalTrackEntity(
+    location = path,
+    mediaStoreId = null,
+    songId = overrideSongId,
+    title = title,
+    artist = artist,
+    album = album.ifBlank { null },
+    durationMs = durationMs,
+    sizeBytes = size,
+    path = path,
+    dateAddedMs = lastModified,
+    dateModifiedMs = lastModified,
+    source = source.name,
+    albumArtist = null,
+    year = year ?: 0,
+    trackNumber = trackNumber ?: 0,
+    qualityLevel = quality,
+    matchState = overrideMatchState.name,
+    matchedSongId = overrideSongId,
+    hasEmbeddedCover = hasCover,
+    folder = folderPathOf(path)
+)
+
+private fun LocalMatchState.toShared(): SharedMatchState = when (this) {
+    LocalMatchState.PENDING -> SharedMatchState.PENDING
+    LocalMatchState.AUTO -> SharedMatchState.AUTO
+    LocalMatchState.MANUAL -> SharedMatchState.MANUAL
+    LocalMatchState.NOT_FOUND -> SharedMatchState.NOT_FOUND
+    LocalMatchState.DETACHED -> SharedMatchState.DETACHED
+}
+
+private fun SharedLocalPlaylist.toDesktopPlaylist(): LocalPlaylist = LocalPlaylist(
+    id = id,
+    name = name,
+    createdAt = createdAt,
+    isPinned = isPinned,
+    lastPlayedAt = lastPlayedAt,
+    folders = folderSources,
+    files = tracks.mapNotNull { it.path },
+    removed = emptyList()
+)
+
 internal class LibraryView(
-    private val data: LocalLibraryData,
+    private val tracks: List<LocalTrack>,
+    private val playlists: List<SharedLocalPlaylist>,
     private val records: List<DownloadRecord>,
+    private val builtins: Map<Long, LocalBuiltinState>,
     private val scanner: LocalScanner
 ) {
-    private val byPath: Map<String, LocalTrack> = data.tracks.associateBy { it.path.lowercase() }
+    private val byPath: Map<String, LocalTrack> = tracks.associateBy { it.path.lowercase() }
     private val collator: Collator = Collator.getInstance(Locale.CHINA)
 
-    private val playlistTracks: Map<Long, List<LocalTrack>> = data.playlists.associate { it.id to resolvePlaylist(it) }
+    private val playlistTracks: Map<Long, List<LocalTrack>> = playlists.associate { playlist ->
+        playlist.id to playlist.tracks.map { it.toDesktopTrack() }
+    }
 
     private val downloadTracks: List<LocalTrack> = records.sortedByDescending { it.downloadedAt }.mapNotNull { record ->
         val path = normalizePath(record.mediaStoreUri)
         val indexed = byPath[path.lowercase()]
         when {
             indexed != null -> indexed.copy(songId = record.songId, matchState = LocalMatchState.MANUAL)
-            // 尚未扫描到的新下载先用下载记录里的信息占位
             File(path).isFile -> LocalTrack(
                 path = path,
                 title = record.songName.ifBlank { File(path).nameWithoutExtension },
@@ -479,18 +593,17 @@ internal class LibraryView(
 
     private val allTracks: List<LocalTrack> by lazy {
         val seen = HashSet<String>()
-        (playlistTracks.values.flatten() + downloadTracks)
+        (tracks + downloadTracks)
             .filter { seen.add(it.path.lowercase()) }
             .sortedWith(compareBy(collator) { it.title })
     }
 
     val summaries: List<LocalPlaylistSummary> by lazy {
-        val builtins = data.builtins.associateBy { it.id }
-        fun builtin(id: Long, name: String, tracks: List<LocalTrack>) = LocalPlaylistSummary(
+        fun builtin(id: Long, name: String, list: List<LocalTrack>) = LocalPlaylistSummary(
             id = id,
             name = name,
-            trackCount = tracks.size,
-            coverUri = firstCover(tracks),
+            trackCount = list.size,
+            coverUri = firstCover(list),
             isPinned = builtins[id]?.isPinned == true,
             lastPlayedAt = builtins[id]?.lastPlayedAt ?: 0L,
             createdAt = 0L
@@ -498,13 +611,13 @@ internal class LibraryView(
         listOf(
             builtin(LOCAL_ALL_TRACKS_ID, "全部本地歌曲", allTracks),
             builtin(LOCAL_DOWNLOADS_ID, "已下载", downloadTracks)
-        ) + data.playlists.map { playlist ->
-            val tracks = playlistTracks[playlist.id].orEmpty()
+        ) + playlists.map { playlist ->
+            val list = playlistTracks[playlist.id].orEmpty()
             LocalPlaylistSummary(
                 id = playlist.id,
                 name = playlist.name,
-                trackCount = tracks.size,
-                coverUri = firstCover(tracks),
+                trackCount = list.size,
+                coverUri = firstCover(list),
                 isPinned = playlist.isPinned,
                 lastPlayedAt = playlist.lastPlayedAt,
                 createdAt = playlist.createdAt
@@ -513,8 +626,8 @@ internal class LibraryView(
     }
 
     val pathIndex: Map<Long, String> by lazy {
-        val index = HashMap<Long, String>(data.tracks.size * 2)
-        data.tracks.forEach { track ->
+        val index = HashMap<Long, String>(tracks.size * 2)
+        tracks.forEach { track ->
             index[track.placeholderId] = track.path
             track.songId?.let { index[it] = track.path }
         }
@@ -528,26 +641,5 @@ internal class LibraryView(
         else -> playlistTracks[id].orEmpty()
     }
 
-    private fun resolvePlaylist(playlist: LocalPlaylist): List<LocalTrack> {
-        val minDurationMs = data.filter.minDurationSec * 1000L
-        val removed = playlist.removed.mapTo(HashSet()) { it.lowercase() }
-        val fromFolders = if (playlist.folders.isEmpty()) {
-            emptyList()
-        } else {
-            data.tracks.filter { track ->
-                playlist.folders.any { isUnder(track.path, it) } &&
-                    track.path.lowercase() !in removed &&
-                    data.filter.excludedFolders.none { isUnder(track.path, it) } &&
-                    (track.durationMs <= 0L || track.durationMs >= minDurationMs)
-            }.sortedWith(compareBy(collator) { it.path })
-        }
-        val folderPaths = fromFolders.mapTo(HashSet()) { it.path.lowercase() }
-        val fromFiles = playlist.files.mapNotNull { file ->
-            val key = normalizePath(file).lowercase()
-            if (key in folderPaths) null else byPath[key]
-        }
-        return fromFolders + fromFiles
-    }
-
-    private fun firstCover(tracks: List<LocalTrack>): String? = tracks.firstOrNull { it.hasCover }?.let(scanner::coverUri)
+    private fun firstCover(list: List<LocalTrack>): String? = list.firstOrNull { it.hasCover }?.let(scanner::coverUri)
 }

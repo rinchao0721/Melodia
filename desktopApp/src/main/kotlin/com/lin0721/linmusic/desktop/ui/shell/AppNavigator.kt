@@ -33,6 +33,8 @@ internal fun desktopNavigator(
         openArtistEntity = state::openArtistEntity,
         openPlaylist = { id, name -> state.navigate(DesktopRoute.Playlist(id, name)) },
         openPlaylistEntity = state::openPlaylistEntity,
+        openLocalPlaylist = state::openLocalPlaylist,
+        openHome = state::goHomeAll,
         openAlbum = { id, name -> state.navigate(DesktopRoute.Playlist(id, name, isAlbum = true)) },
         openRadio = { id -> state.navigate(DesktopRoute.Radio(id)) },
         openProfile = { uid -> state.navigate(DesktopRoute.Profile(uid)) },

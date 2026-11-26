@@ -17,7 +17,16 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import com.lin0721.linmusic.core.source.MusicPlatform
+import com.lin0721.linmusic.core.auth.UserPreferences
+import com.lin0721.linmusic.desktop.ui.local.LocalLibraryDesktopViewModel
+import com.lin0721.linmusic.desktop.ui.local.LocalLibrarySidebar
+import com.lin0721.linmusic.desktop.ui.navigation.DesktopRoute
+import com.lin0721.linmusic.desktop.ui.shell.LocalDesktopNavigator
+import org.koin.java.KoinJavaComponent.getKoin
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -90,10 +99,25 @@ fun LibraryPane(
                             LibraryMode.RAIL -> LibraryRail(
                                 viewModel, isLoggedIn, onItemClick, onModeChange, extras, shortcutsState
                             )
-                            LibraryMode.DEFAULT -> LibrarySidebar(
-                                viewModel, isLoggedIn, onLoginClick, onItemClick, onModeChange, viewMode, onViewModeChange,
-                                onFilterToggle, onSortOrderChange, extras, shortcutsState, footer = footer
-                            )
+                            LibraryMode.DEFAULT -> {
+                                val userPrefs = remember { getKoin().get<UserPreferences>() }
+                                val currentPlatform by userPrefs.currentPlatform.collectAsState(initial = MusicPlatform.NETEASE)
+                                if (currentPlatform == MusicPlatform.LOCAL) {
+                                    val localVm = remember { getKoin().get<LocalLibraryDesktopViewModel>() }
+                                    val navigator = LocalDesktopNavigator.current
+                                    LocalLibrarySidebar(
+                                        viewModel = localVm,
+                                        onSelectNav = { navigator.openHome() },
+                                        onOpenPlaylist = { id, title -> navigator.openLocalPlaylist(id, title) },
+                                        footer = footer
+                                    )
+                                } else {
+                                    LibrarySidebar(
+                                        viewModel, isLoggedIn, onLoginClick, onItemClick, onModeChange, viewMode, onViewModeChange,
+                                        onFilterToggle, onSortOrderChange, extras, shortcutsState, footer = footer
+                                    )
+                                }
+                            }
                             LibraryMode.EXPANDED -> LibraryExpanded(
                                 viewModel, isLoggedIn, onLoginClick, onItemClick, onModeChange, viewMode, onViewModeChange,
                                 onFilterToggle, onSortOrderChange, extras, shortcutsState

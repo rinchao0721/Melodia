@@ -110,4 +110,9 @@ class LocalPlaylistRepository(
         playlistDao.deleteSource(playlistId, folderPath)
         playlistDao.touch(playlistId, nowProvider())
     }
+
+    suspend fun reorderPlaylists(orderedIds: List<Long>) {
+        if (orderedIds.isEmpty()) return
+        playlistDao.reorderPlaylists(orderedIds, nowProvider())
+    }
 }

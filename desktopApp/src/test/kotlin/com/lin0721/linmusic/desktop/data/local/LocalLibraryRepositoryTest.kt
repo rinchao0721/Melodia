@@ -1,5 +1,11 @@
 package com.lin0721.linmusic.desktop.data.local
 
+import com.lin0721.linmusic.core.localmusic.data.DesktopJsonImporter
+import com.lin0721.linmusic.core.localmusic.data.LocalLibraryRepository as SharedLocalLibraryRepository
+import com.lin0721.linmusic.core.localmusic.data.LocalMatchService
+import com.lin0721.linmusic.core.localmusic.data.LocalPlaylistRepository
+import com.lin0721.linmusic.core.localmusic.db.LocalMusicDatabase
+import com.lin0721.linmusic.core.localmusic.db.LocalMusicDatabaseFactory
 import com.lin0721.linmusic.core.model.Artist
 import com.lin0721.linmusic.core.model.Track
 import com.lin0721.linmusic.core.network.OnlineStateProvider
@@ -82,14 +88,24 @@ class LocalLibraryRepositoryTest {
         }
     }
 
-    private fun repository(search: SearchRepository) = LocalLibraryRepository(
-        store = LocalLibraryStore(File(dir, "lib.json")),
-        scanner = LocalScanner { File(dir, "covers") },
-        matcher = LocalMatcher(search),
-        downloadPreferences = DesktopDownloadPreferences(PreferencesStores.get(File(dir, "download.preferences_pb"))),
-        onlineState = Online,
-        scope = scope
-    )
+    private fun repository(search: SearchRepository, legacyJson: File? = null): LocalLibraryRepository {
+        val db = LocalMusicDatabase.build(LocalMusicDatabaseFactory(dir).createBuilder())
+        val sharedLib = SharedLocalLibraryRepository(db.localTrackDao())
+        val sharedPlaylists = LocalPlaylistRepository(db.localPlaylistDao(), sharedLib)
+        return LocalLibraryRepository(
+            sharedLibrary = sharedLib,
+            sharedPlaylists = sharedPlaylists,
+            trackDao = db.localTrackDao(),
+            playlistDao = db.localPlaylistDao(),
+            jsonImporter = DesktopJsonImporter(db.localTrackDao(), db.localPlaylistDao()),
+            matchService = LocalMatchService(search),
+            scanner = LocalScanner { File(dir, "covers") },
+            downloadPreferences = DesktopDownloadPreferences(PreferencesStores.get(File(dir, "download.preferences_pb"))),
+            onlineState = Online,
+            scope = scope,
+            legacyJsonFile = legacyJson
+        )
+    }
 
     private suspend fun awaitTrack(repo: LocalLibraryRepository, predicate: (LocalTrack) -> Boolean): LocalTrack =
         withTimeout(10_000) {
@@ -117,7 +133,7 @@ class LocalLibraryRepositoryTest {
         val id = repo.createPlaylist("", music)
         val matched = awaitTrack(repo) { it.matchState == LocalMatchState.AUTO }
         // 歌单摘要与 songId 索引由 data 异步派生，CI 上可能晚于 data 更新
-        awaitCondition { repo.pathForSongId(186016L) != null && repo.summaries.value.any { it.id == id } }
+        awaitCondition { repo.pathForSongId(186016L) != null && repo.summaries.value.any { it.id == id } && repo.summaries.value.single { it.id == id }.trackCount == 1 }
         assertEquals(186016L, matched.songId)
         assertEquals("music", repo.summaries.value.single { it.id == id }.name)
         assertEquals(1, repo.tracksOf(id).first().size)
@@ -153,61 +169,31 @@ class LocalLibraryRepositoryTest {
 
         repo.removePlaylist(id)
         withTimeout(5_000) {
-            while (repo.data.value.tracks.isNotEmpty() || repo.data.value.playlists.isNotEmpty()) delay(50)
+            while (repo.data.value.playlists.isNotEmpty()) delay(50)
         }
-        delay(800)
-        val saved = LocalLibraryStore(File(dir, "lib.json")).load()
-        assertTrue(saved.playlists.isEmpty())
-        assertTrue(saved.tracks.isEmpty())
         assertTrue(music.listFiles()!!.any { it.name == "a.wav" })
     }
 
     @Test
-    fun legacyQualityVersionRefreshesStaleContainerTrackQuality() = runBlocking {
-        val music = File(dir, "music")
-        music.mkdirs()
-        val m4a = File(music, "Queen - I Want to Break Free.m4a").apply {
-            writeBytes(ByteArray(32) { it.toByte() })
+    fun importsLegacyJsonOnStartupAndRenamesToBak() = runBlocking {
+        val legacyJson = File(dir, "local_library.json")
+        legacyJson.writeText("""{"playlists":[{"id":1,"name":"旧歌单","createdAt":100}],"tracks":[]}""")
+        val repo = repository(FakeSearch(emptyList()), legacyJson = legacyJson)
+        withTimeout(10_000) {
+            while (repo.data.value.playlists.isEmpty()) delay(50)
         }
-        val normalizedPath = normalizePath(m4a.path)
-        val storeFile = File(dir, "lib.json")
-        LocalLibraryStore(storeFile).save(
-            LocalLibraryData(
-                playlists = listOf(
-                    LocalPlaylist(
-                        id = 1L,
-                        name = "测试",
-                        createdAt = 1L,
-                        folders = listOf(normalizePath(music.path))
-                    )
-                ),
-                tracks = listOf(
-                    LocalTrack(
-                        path = normalizedPath,
-                        title = "I Want to Break Free",
-                        artist = "Queen",
-                        size = m4a.length(),
-                        lastModified = m4a.lastModified(),
-                        matchState = LocalMatchState.NOT_FOUND,
-                        quality = "exhigh"
-                    )
-                ),
-                qualityVersion = 0
-            )
-        )
+        assertEquals("旧歌单", repo.data.value.playlists.first().name)
+        assertTrue(File(dir, "local_library.json.bak").isFile)
+    }
 
-        val repo = LocalLibraryRepository(
-            store = LocalLibraryStore(storeFile),
-            scanner = LocalScanner { File(dir, "covers") },
-            matcher = LocalMatcher(FakeSearch(emptyList())),
-            downloadPreferences = DesktopDownloadPreferences(PreferencesStores.get(File(dir, "download.preferences_pb"))),
-            onlineState = Online,
-            scope = scope
-        )
-
-        awaitCondition { repo.data.value.qualityVersion == CURRENT_LOCAL_QUALITY_VERSION }
-        val refreshed = repo.data.value.tracks.single()
-        // 占位 m4a 无法读出码率，重扫后会覆盖掉旧版误写入的 "exhigh"
-        assertEquals("", refreshed.quality)
+    @Test
+    fun keepsLegacyJsonWhenImportFails() = runBlocking {
+        val legacyJson = File(dir, "local_library.json")
+        legacyJson.writeText("{ invalid json")
+        val repo = repository(FakeSearch(emptyList()), legacyJson = legacyJson)
+        delay(300)
+        assertTrue(legacyJson.isFile)
+        assertTrue(!File(dir, "local_library.json.bak").exists())
+        assertTrue(repo.data.value.playlists.isEmpty())
     }
 }

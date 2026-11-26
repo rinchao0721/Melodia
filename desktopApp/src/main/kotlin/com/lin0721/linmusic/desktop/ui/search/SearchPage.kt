@@ -28,6 +28,18 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import com.lin0721.linmusic.core.localmusic.data.LocalSearch
+import com.lin0721.linmusic.core.localmusic.domain.LocalAlbum
+import com.lin0721.linmusic.core.localmusic.domain.LocalArtist
+import com.lin0721.linmusic.core.auth.UserPreferences
+import com.lin0721.linmusic.desktop.ui.local.LocalLibraryDesktopViewModel
+import com.lin0721.linmusic.desktop.ui.local.LocalLibraryNav
+import com.lin0721.linmusic.desktop.ui.navigation.DesktopRoute
+import com.lin0721.linmusic.desktop.ui.shell.LocalDesktopNavigator
+import org.koin.java.KoinJavaComponent.getKoin
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -67,12 +79,121 @@ fun SearchPage(
     onOpenPlaylist: (id: Long, title: String, isAlbum: Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val userPrefs = remember { getKoin().get<UserPreferences>() }
+    val currentPlatform by userPrefs.currentPlatform.collectAsState(initial = MusicPlatform.NETEASE)
+    if (currentPlatform == MusicPlatform.LOCAL) {
+        val localVm = remember { getKoin().get<LocalLibraryDesktopViewModel>() }
+        val navigator = LocalDesktopNavigator.current
+        val input by viewModel.inputState.collectAsState()
+        LocalSearchResultsContent(
+            query = input.query,
+            viewModel = localVm,
+            onOpenAlbum = { album ->
+                localVm.selectNav(LocalLibraryNav.ALBUMS)
+                localVm.selectAlbum(album)
+                navigator.goBack()
+            },
+            onOpenArtist = { artist ->
+                localVm.selectNav(LocalLibraryNav.ARTISTS)
+                localVm.selectArtist(artist)
+                navigator.goBack()
+            },
+            modifier = modifier
+        )
+        return
+    }
     val mode by viewModel.mode.collectAsState()
     Box(modifier.fillMaxSize()) {
         if (mode == SearchMode.Results) {
             ResultsContent(viewModel, controller, onOpenPlaylist)
         } else {
             Centered { Text("在上方搜索框输入关键词后按回车搜索", color = DesktopColors.TextGray) }
+        }
+    }
+}
+
+@Composable
+private fun LocalSearchResultsContent(
+    query: String,
+    viewModel: LocalLibraryDesktopViewModel,
+    onOpenAlbum: (LocalAlbum) -> Unit,
+    onOpenArtist: (LocalArtist) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val index by viewModel.index.collectAsState()
+    val result = remember(query, index) { LocalSearch.search(query, index) }
+    if (query.isBlank()) {
+        Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text("在上方搜索框输入关键词搜索本地歌曲、专辑、歌手", color = DesktopColors.TextGray)
+        }
+        return
+    }
+    if (result.isEmpty) {
+        Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text("未找到匹配的本地内容", color = DesktopColors.TextGray)
+        }
+        return
+    }
+    LazyColumn(
+        modifier = modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        if (result.songs.isNotEmpty()) {
+            item {
+                Text("歌曲 (${result.songs.size})", color = DesktopColors.TextPrimary, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+            }
+            items(result.songs.size, key = { result.songs[it].location }) { idx ->
+                val track = result.songs[idx]
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable { viewModel.playTracks(result.songs, idx) }
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text(track.title, color = DesktopColors.TextPrimary, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(listOfNotNull(track.artist, track.album?.takeIf { it.isNotBlank() }).joinToString(" · "), color = DesktopColors.TextGray, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                }
+            }
+        }
+        if (result.albums.isNotEmpty()) {
+            item {
+                Text("专辑 (${result.albums.size})", color = DesktopColors.TextPrimary, fontSize = 15.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 8.dp))
+            }
+            items(result.albums.size, key = { "${result.albums[it].name}|${result.albums[it].artist}" }) { idx ->
+                val album = result.albums[idx]
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable { onOpenAlbum(album) }
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("${album.name} · ${album.artist} (${album.tracks.size} 首)", color = DesktopColors.TextPrimary, fontSize = 13.sp)
+                }
+            }
+        }
+        if (result.artists.isNotEmpty()) {
+            item {
+                Text("歌手 (${result.artists.size})", color = DesktopColors.TextPrimary, fontSize = 15.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 8.dp))
+            }
+            items(result.artists.size, key = { result.artists[it].name }) { idx ->
+                val artist = result.artists[idx]
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable { onOpenArtist(artist) }
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("${artist.name} (${artist.tracks.size} 首)", color = DesktopColors.TextPrimary, fontSize = 13.sp)
+                }
+            }
         }
     }
 }
