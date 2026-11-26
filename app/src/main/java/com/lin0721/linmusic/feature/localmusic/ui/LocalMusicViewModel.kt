@@ -11,7 +11,7 @@ import com.lin0721.linmusic.core.model.Track
 import com.lin0721.linmusic.core.network.ResourceProvider
 import com.lin0721.linmusic.core.network.toUserMessage
 import com.lin0721.linmusic.core.player.PlaybackController
-import com.lin0721.linmusic.core.player.PlaybackStateStore
+import com.lin0721.linmusic.core.player.PlaybackPreferences
 import com.lin0721.linmusic.core.player.QueueItem
 import com.lin0721.linmusic.core.localmusic.ui.LocalLibraryTab
 import com.lin0721.linmusic.core.localmusic.ui.ResumePlaybackInfo
@@ -46,6 +46,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -115,7 +116,7 @@ class LocalMusicViewModel(
     private val songLikeRepository: SongLikeRepository,
     private val syncProfileAfterLoginUseCase: SyncProfileAfterLoginUseCase,
     private val resourceProvider: ResourceProvider,
-    private val playbackStateStore: PlaybackStateStore,
+    private val playbackPreferences: PlaybackPreferences,
     userPreferences: UserPreferences
 ) : ViewModel() {
 
@@ -181,7 +182,7 @@ class LocalMusicViewModel(
     init {
         loadLikedSongIds()
         viewModelScope.launch {
-            _resumePlayback.value = resolveResumePlayback(playbackStateStore.loadQueueState())
+            _resumePlayback.value = resolveResumePlayback(playbackPreferences.queueState.first())
         }
     }
 
@@ -271,7 +272,7 @@ class LocalMusicViewModel(
 
     fun resumeLastPlayback() {
         viewModelScope.launch {
-            val state = playbackStateStore.loadQueueState()
+            val state = playbackPreferences.queueState.first()
             if (state.queue.isNotEmpty()) {
                 val safeIndex = state.currentIndex.coerceIn(0, state.queue.lastIndex)
                 playerManager.playQueue(state.queue, safeIndex, state.playContext?.ifBlank { PLAY_CONTEXT } ?: PLAY_CONTEXT)
