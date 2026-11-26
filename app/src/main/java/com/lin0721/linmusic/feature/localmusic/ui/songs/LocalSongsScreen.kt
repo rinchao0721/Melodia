@@ -25,7 +25,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
@@ -45,6 +44,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lin0721.linmusic.LocalBottomOverlayInset
 import com.lin0721.linmusic.core.ui.components.EmptyState
 import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
+import com.lin0721.linmusic.core.ui.components.MelodiaTextButton
 import com.lin0721.linmusic.core.ui.components.SecondaryScreenScaffold
 import com.lin0721.linmusic.core.ui.interaction.pressable
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
@@ -176,10 +176,12 @@ fun LocalSongsScreen(
         val count = success?.selectedUris?.size ?: 0
         AlertDialog(
             onDismissRequest = { confirmDeleteSelected = false },
+            containerColor = MaterialTheme.colorScheme.surface,
+            shape = MaterialTheme.shapes.medium,
             title = { Text("批量处理", fontWeight = FontWeight.Bold) },
             text = { Text("确定要处理选中的 $count 首歌曲吗？普通本地文件会被永久删除，导入的歌曲将被移出列表。") },
             confirmButton = {
-                TextButton(onClick = {
+                MelodiaTextButton(onClick = {
                     viewModel.deleteSelected()
                     confirmDeleteSelected = false
                 }) {
@@ -187,7 +189,7 @@ fun LocalSongsScreen(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { confirmDeleteSelected = false }) { Text("取消") }
+                MelodiaTextButton(onClick = { confirmDeleteSelected = false }) { Text("取消", color = MaterialTheme.colorScheme.onSurface) }
             }
         )
     }

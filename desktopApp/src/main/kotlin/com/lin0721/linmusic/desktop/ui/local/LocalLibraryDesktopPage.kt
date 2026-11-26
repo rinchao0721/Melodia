@@ -24,8 +24,6 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -57,6 +55,14 @@ import com.lin0721.linmusic.core.ui.icons.ArrowBack
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.core.ui.icons.MoreHoriz
 import com.lin0721.linmusic.core.ui.icons.MusicNote
+import com.lin0721.linmusic.core.ui.icons.Edit
+import com.lin0721.linmusic.core.ui.icons.Play
+import com.lin0721.linmusic.core.ui.icons.PlaylistAdd
+import com.lin0721.linmusic.core.ui.icons.Sparkle
+import com.lin0721.linmusic.desktop.ui.components.DesktopMenu
+import com.lin0721.linmusic.desktop.ui.components.MenuDivider
+import com.lin0721.linmusic.desktop.ui.components.SimpleMenuItem
+import com.lin0721.linmusic.desktop.ui.library.MenuOption
 import com.lin0721.linmusic.desktop.data.local.LocalLibraryRepository
 import com.lin0721.linmusic.desktop.ui.components.DialogButton
 import com.lin0721.linmusic.desktop.ui.components.HoverReveal
@@ -243,15 +249,12 @@ private fun SortOrderSelector(
         ) {
             Text(current.label, color = DesktopColors.TextPrimary, fontSize = 12.sp)
         }
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+        DesktopMenu(expanded = expanded, onDismiss = { expanded = false }) {
             LocalTrackSortOrder.entries.forEach { order ->
-                DropdownMenuItem(
-                    text = { Text(order.label) },
-                    onClick = {
-                        expanded = false
-                        onSelect(order)
-                    }
-                )
+                MenuOption(order.label, selected = order == current) {
+                    expanded = false
+                    onSelect(order)
+                }
             }
         }
     }
@@ -386,49 +389,35 @@ private fun LocalTrackListRow(
         }
 
         // 本地模式菜单：不出现红心、在线收藏等在线项，保留加入本地歌单
-        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-            DropdownMenuItem(
-                text = { Text("播放") },
-                onClick = {
-                    menuOpen = false
-                    onPlay()
-                }
-            )
-            DropdownMenuItem(
-                text = { Text("加入本地歌单") },
-                onClick = {
-                    menuOpen = false
-                    playlistMenuOpen = true
-                }
-            )
-            DropdownMenuItem(
-                text = { Text("匹配歌词与封面") },
-                onClick = {
-                    menuOpen = false
-                    onMatch()
-                }
-            )
-            DropdownMenuItem(
-                text = { Text("编辑标签") },
-                onClick = {
-                    menuOpen = false
-                    onEditTags()
-                }
-            )
+        DesktopMenu(expanded = menuOpen, onDismiss = { menuOpen = false }) {
+            SimpleMenuItem(text = "播放", icon = MelodiaIcons.Play, onClick = {
+                menuOpen = false
+                onPlay()
+            })
+            SimpleMenuItem(text = "加入本地歌单", icon = MelodiaIcons.PlaylistAdd, onClick = {
+                menuOpen = false
+                playlistMenuOpen = true
+            })
+            MenuDivider()
+            SimpleMenuItem(text = "匹配歌词与封面", icon = MelodiaIcons.Sparkle, onClick = {
+                menuOpen = false
+                onMatch()
+            })
+            SimpleMenuItem(text = "编辑标签", icon = MelodiaIcons.Edit, onClick = {
+                menuOpen = false
+                onEditTags()
+            })
         }
 
-        DropdownMenu(expanded = playlistMenuOpen, onDismissRequest = { playlistMenuOpen = false }) {
+        DesktopMenu(expanded = playlistMenuOpen, onDismiss = { playlistMenuOpen = false }) {
             if (playlists.isEmpty()) {
-                DropdownMenuItem(text = { Text("暂无本地歌单") }, onClick = { playlistMenuOpen = false })
+                SimpleMenuItem(text = "暂无本地歌单", enabled = false, onClick = { playlistMenuOpen = false })
             } else {
                 playlists.forEach { playlist ->
-                    DropdownMenuItem(
-                        text = { Text(playlist.name) },
-                        onClick = {
-                            playlistMenuOpen = false
-                            onAddToPlaylist(playlist.id)
-                        }
-                    )
+                    SimpleMenuItem(text = playlist.name, onClick = {
+                        playlistMenuOpen = false
+                        onAddToPlaylist(playlist.id)
+                    })
                 }
             }
         }

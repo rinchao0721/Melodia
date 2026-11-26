@@ -23,14 +23,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -55,10 +50,19 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import com.lin0721.linmusic.core.localmusic.domain.LocalPlaylist
 import com.lin0721.linmusic.core.ui.icons.Album
+import com.lin0721.linmusic.core.ui.icons.Delete
 import com.lin0721.linmusic.core.ui.icons.Download
+import com.lin0721.linmusic.core.ui.icons.Edit
+import com.lin0721.linmusic.core.ui.icons.FolderOpen
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Mic
 import com.lin0721.linmusic.core.ui.icons.MoreHoriz
 import com.lin0721.linmusic.core.ui.icons.MusicNote
+import com.lin0721.linmusic.core.ui.icons.PlaylistAdd
+import com.lin0721.linmusic.core.ui.icons.PushPin
+import com.lin0721.linmusic.desktop.ui.components.DesktopMenu
+import com.lin0721.linmusic.desktop.ui.components.MenuDivider
+import com.lin0721.linmusic.desktop.ui.components.SimpleMenuItem
 import com.lin0721.linmusic.desktop.ui.components.HoverReveal
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import kotlin.math.roundToInt
@@ -129,7 +133,7 @@ fun LocalLibrarySidebar(
                     .clickable { showCreateDialog = true },
                 contentAlignment = Alignment.Center
             ) {
-                Text("+", color = DesktopColors.TextGray, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+                Icon(MelodiaIcons.PlaylistAdd, contentDescription = "新建本地歌单", tint = DesktopColors.TextGray, modifier = Modifier.size(16.dp))
             }
         }
 
@@ -147,68 +151,35 @@ fun LocalLibrarySidebar(
     }
 
     if (showCreateDialog) {
-        var name by remember { mutableStateOf("") }
-        AlertDialog(
-            onDismissRequest = { showCreateDialog = false },
-            title = { Text("新建本地歌单") },
-            text = {
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    placeholder = { Text("输入歌单名称") },
-                    singleLine = true
-                )
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    if (name.isNotBlank()) viewModel.createPlaylist(name)
-                    showCreateDialog = false
-                }) { Text("确定") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showCreateDialog = false }) { Text("取消") }
+        AddLocalPlaylistDialog(
+            onDismiss = { showCreateDialog = false },
+            onCreate = { name, folder ->
+                showCreateDialog = false
+                viewModel.createPlaylist(name, folder) { id ->
+                    onOpenPlaylist(id, name.ifBlank { folder?.name.orEmpty() })
+                }
             }
         )
     }
 
     renamingPlaylist?.let { target ->
-        var name by remember(target.id) { mutableStateOf(target.name) }
-        AlertDialog(
-            onDismissRequest = { renamingPlaylist = null },
-            title = { Text("重命名歌单") },
-            text = {
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    placeholder = { Text("输入新名称") },
-                    singleLine = true
-                )
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    if (name.isNotBlank()) viewModel.renamePlaylist(target.id, name)
-                    renamingPlaylist = null
-                }) { Text("确定") }
-            },
-            dismissButton = {
-                TextButton(onClick = { renamingPlaylist = null }) { Text("取消") }
+        RenameLocalPlaylistDialog(
+            initialName = target.name,
+            onDismiss = { renamingPlaylist = null },
+            onConfirm = { name ->
+                viewModel.renamePlaylist(target.id, name)
+                renamingPlaylist = null
             }
         )
     }
 
     deletingPlaylist?.let { target ->
-        AlertDialog(
-            onDismissRequest = { deletingPlaylist = null },
-            title = { Text("删除歌单") },
-            text = { Text("确定删除本地歌单「${target.name}」吗？（不会删除磁盘文件）") },
-            confirmButton = {
-                TextButton(onClick = {
-                    viewModel.deletePlaylist(target.id)
-                    deletingPlaylist = null
-                }) { Text("删除", color = Color(0xFFE5534B)) }
-            },
-            dismissButton = {
-                TextButton(onClick = { deletingPlaylist = null }) { Text("取消") }
+        RemoveLocalPlaylistDialog(
+            name = target.name,
+            onDismiss = { deletingPlaylist = null },
+            onConfirm = {
+                viewModel.deletePlaylist(target.id)
+                deletingPlaylist = null
             }
         )
     }
@@ -378,26 +349,28 @@ private fun LocalPlaylistReorderList(
                     }
                 }
 
-                DropdownMenu(
-                    expanded = menuOpen,
-                    onDismissRequest = { menuOpen = false }
-                ) {
-                    DropdownMenuItem(
-                        text = { Text(if (playlist.isPinned) "取消置顶" else "置顶歌单") },
+                DesktopMenu(expanded = menuOpen, onDismiss = { menuOpen = false }) {
+                    SimpleMenuItem(
+                        text = if (playlist.isPinned) "取消置顶" else "置顶歌单",
+                        icon = MelodiaIcons.PushPin,
                         onClick = {
                             menuOpen = false
                             onTogglePin(playlist)
                         }
                     )
-                    DropdownMenuItem(
-                        text = { Text("重命名") },
+                    SimpleMenuItem(
+                        text = "重命名",
+                        icon = MelodiaIcons.Edit,
                         onClick = {
                             menuOpen = false
                             onRename(playlist)
                         }
                     )
-                    DropdownMenuItem(
-                        text = { Text("删除歌单", color = Color(0xFFE5534B)) },
+                    MenuDivider()
+                    SimpleMenuItem(
+                        text = "移除歌单",
+                        icon = MelodiaIcons.Delete,
+                        danger = true,
                         onClick = {
                             menuOpen = false
                             onDelete(playlist)
@@ -412,7 +385,7 @@ private fun LocalPlaylistReorderList(
 private fun navIcon(nav: LocalLibraryNav): ImageVector = when (nav) {
     LocalLibraryNav.SONGS -> MelodiaIcons.MusicNote
     LocalLibraryNav.ALBUMS -> MelodiaIcons.Album
-    LocalLibraryNav.ARTISTS -> MelodiaIcons.MusicNote
-    LocalLibraryNav.FOLDERS -> MelodiaIcons.MusicNote
+    LocalLibraryNav.ARTISTS -> MelodiaIcons.Mic
+    LocalLibraryNav.FOLDERS -> MelodiaIcons.FolderOpen
     LocalLibraryNav.DOWNLOADS -> MelodiaIcons.Download
 }

@@ -10,7 +10,6 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -21,6 +20,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lin0721.linmusic.core.ui.components.LoginBottomSheet
+import com.lin0721.linmusic.core.ui.components.MelodiaTextButton
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectSheet
 import com.lin0721.linmusic.core.ui.components.ToastManager
 import com.lin0721.linmusic.core.ui.components.WebViewLoginScreen
@@ -186,6 +186,8 @@ fun LocalTrackActionsHost(
         val imported = target.source == LocalTrackSource.IMPORTED
         AlertDialog(
             onDismissRequest = { deleteTarget = null },
+            containerColor = MaterialTheme.colorScheme.surface,
+            shape = MaterialTheme.shapes.medium,
             title = { Text(if (imported) "移除歌曲" else "删除文件", fontWeight = FontWeight.Bold) },
             text = {
                 Text(
@@ -194,7 +196,7 @@ fun LocalTrackActionsHost(
                 )
             },
             confirmButton = {
-                TextButton(onClick = {
+                MelodiaTextButton(onClick = {
                     viewModel.deleteTrack(target)
                     deleteTarget = null
                 }) {
@@ -202,7 +204,7 @@ fun LocalTrackActionsHost(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { deleteTarget = null }) { Text("取消") }
+                MelodiaTextButton(onClick = { deleteTarget = null }) { Text("取消", color = MaterialTheme.colorScheme.onSurface) }
             }
         )
     }

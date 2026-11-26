@@ -30,6 +30,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.io.File
 
 enum class LocalLibraryNav(val label: String) {
     SONGS("歌曲"),
@@ -131,9 +132,9 @@ class LocalLibraryDesktopViewModel(
         }
     }
 
-    fun createPlaylist(name: String) {
+    fun createPlaylist(name: String, folder: File?, onCreated: (Long) -> Unit) {
         scope.launch {
-            localLibrary.createPlaylist(name)
+            onCreated(localLibrary.createPlaylist(name, folder))
         }
     }
 

@@ -19,7 +19,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.ReadOnlyComposable
@@ -37,6 +36,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lin0721.linmusic.LocalBottomOverlayInset
 import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
+import com.lin0721.linmusic.core.ui.components.MelodiaTextButton
 import com.lin0721.linmusic.core.ui.components.SecondaryScreenScaffold
 import com.lin0721.linmusic.core.ui.components.ToastManager
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
@@ -180,6 +180,8 @@ fun LocalMusicSettingsScreen(
     removeTarget?.let { target ->
         AlertDialog(
             onDismissRequest = { removeTarget = null },
+            containerColor = MaterialTheme.colorScheme.surface,
+            shape = MaterialTheme.shapes.medium,
             title = { Text("移除授权文件夹", fontWeight = FontWeight.Bold) },
             text = {
                 Text(
@@ -188,7 +190,7 @@ fun LocalMusicSettingsScreen(
                 )
             },
             confirmButton = {
-                TextButton(onClick = {
+                MelodiaTextButton(onClick = {
                     viewModel.removeAuthorizedFolder(target)
                     removeTarget = null
                 }) {
@@ -196,7 +198,7 @@ fun LocalMusicSettingsScreen(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { removeTarget = null }) { Text("取消") }
+                MelodiaTextButton(onClick = { removeTarget = null }) { Text("取消", color = MaterialTheme.colorScheme.onSurface) }
             }
         )
     }

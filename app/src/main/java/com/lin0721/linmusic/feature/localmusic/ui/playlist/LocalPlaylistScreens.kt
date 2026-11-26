@@ -1,5 +1,6 @@
 package com.lin0721.linmusic.feature.localmusic.ui.playlist
 
+import com.lin0721.linmusic.core.ui.components.MelodiaTextButton
 import com.lin0721.linmusic.core.ui.components.rememberDragReorderState
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
@@ -26,7 +27,6 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -50,7 +50,6 @@ import com.lin0721.linmusic.core.ui.components.CreatePlaylistDialog
 import com.lin0721.linmusic.core.ui.components.EmptyState
 import com.lin0721.linmusic.core.ui.components.MelodiaButton
 import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
-import com.lin0721.linmusic.core.ui.components.MelodiaTextButton
 import com.lin0721.linmusic.core.ui.components.SecondaryScreenScaffold
 import com.lin0721.linmusic.core.ui.interaction.pressable
 import com.lin0721.linmusic.core.ui.theme.LocalUiMotion
@@ -268,10 +267,12 @@ fun LocalPlaylistScreen(
     if (confirmDelete && playlist != null) {
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
+            containerColor = MaterialTheme.colorScheme.surface,
+            shape = MaterialTheme.shapes.medium,
             title = { Text("删除歌单", fontWeight = FontWeight.Bold) },
             text = { Text("确定要删除「${playlist.name}」吗？歌曲文件不会被删除。") },
             confirmButton = {
-                TextButton(onClick = {
+                MelodiaTextButton(onClick = {
                     confirmDelete = false
                     viewModel.deletePlaylist(playlist)
                     navigation.onBack()
@@ -280,7 +281,7 @@ fun LocalPlaylistScreen(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { confirmDelete = false }) { Text("取消") }
+                MelodiaTextButton(onClick = { confirmDelete = false }) { Text("取消", color = MaterialTheme.colorScheme.onSurface) }
             }
         )
     }

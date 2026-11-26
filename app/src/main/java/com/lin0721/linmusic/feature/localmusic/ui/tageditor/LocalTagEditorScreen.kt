@@ -27,7 +27,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -132,10 +131,12 @@ fun LocalTagEditorScreen(
     if (showReauthorizeDialog) {
         AlertDialog(
             onDismissRequest = { showReauthorizeDialog = false },
+            containerColor = MaterialTheme.colorScheme.surface,
+            shape = MaterialTheme.shapes.medium,
             title = { Text("需要重新授权", fontWeight = FontWeight.Bold) },
             text = { Text("这首歌是导入的，需要重新选择该文件授权写入。") },
             confirmButton = {
-                TextButton(onClick = {
+                MelodiaTextButton(onClick = {
                     showReauthorizeDialog = false
                     documentLauncher.launch(arrayOf("audio/*"))
                 }) {
@@ -143,8 +144,8 @@ fun LocalTagEditorScreen(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showReauthorizeDialog = false }) {
-                    Text("取消")
+                MelodiaTextButton(onClick = { showReauthorizeDialog = false }) {
+                    Text("取消", color = MaterialTheme.colorScheme.onSurface)
                 }
             }
         )
@@ -198,10 +199,12 @@ fun LocalTagEditorScreen(
                     if (showDiscardDialog) {
                         AlertDialog(
                             onDismissRequest = { showDiscardDialog = false },
+                            containerColor = MaterialTheme.colorScheme.surface,
+                            shape = MaterialTheme.shapes.medium,
                             title = { Text("放弃修改？", fontWeight = FontWeight.Bold) },
                             text = { Text("确认放弃未保存的更改吗？") },
                             confirmButton = {
-                                TextButton(onClick = {
+                                MelodiaTextButton(onClick = {
                                     showDiscardDialog = false
                                     navigation.onBack()
                                 }) {
@@ -209,7 +212,7 @@ fun LocalTagEditorScreen(
                                 }
                             },
                             dismissButton = {
-                                TextButton(onClick = { showDiscardDialog = false }) { Text("取消") }
+                                MelodiaTextButton(onClick = { showDiscardDialog = false }) { Text("取消", color = MaterialTheme.colorScheme.onSurface) }
                             }
                         )
                     }

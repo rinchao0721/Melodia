@@ -5,10 +5,10 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.text.font.FontWeight
 import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
+import com.lin0721.linmusic.core.ui.components.MelodiaTextButton
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.feature.localmusic.domain.LocalTrack
 import com.lin0721.linmusic.feature.localmusic.ui.LocalMusicUiState
@@ -56,13 +56,15 @@ fun RowScope.LocalSelectionActions(
 fun LocalBatchDeleteDialog(count: Int, onConfirm: () -> Unit, onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
+        containerColor = MaterialTheme.colorScheme.surface,
+        shape = MaterialTheme.shapes.medium,
         title = { Text("批量处理", fontWeight = FontWeight.Bold) },
         text = { Text("确定要处理选中的 $count 首歌曲吗？普通本地文件会被永久删除，导入的歌曲将被移出列表。") },
         confirmButton = {
-            TextButton(onClick = onConfirm) { Text("确定", color = MaterialTheme.colorScheme.error) }
+            MelodiaTextButton(onClick = onConfirm) { Text("确定", color = MaterialTheme.colorScheme.error) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("取消") }
+            MelodiaTextButton(onClick = onDismiss) { Text("取消", color = MaterialTheme.colorScheme.onSurface) }
         }
     )
 }
