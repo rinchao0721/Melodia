@@ -81,6 +81,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
 import org.koin.android.ext.android.inject
+import com.lin0721.linmusic.core.localmusic.data.LocalPlaylistRepository as SharedLocalPlaylistRepository
+import com.lin0721.linmusic.feature.localmusic.data.LocalLibraryRepository
+import kotlinx.coroutines.flow.map
 
 private const val TAG = "MelodiaPlaybackService"
 private const val NOTIFICATION_ID = 1001
@@ -164,12 +167,16 @@ class MelodiaPlaybackService : MediaSessionService() {
     private val settingsPreferences: SettingsPreferences by inject()
     private val userPreferences: UserPreferences by inject()
     private val songLikeRepository: SongLikeRepository by inject()
+    private val localPlaylistRepository: SharedLocalPlaylistRepository by inject()
+    private val localLibraryRepository: LocalLibraryRepository by inject()
     private val externalLyricCoordinator: ExternalLyricCoordinator by inject()
     private val externalInterruptionResumeController: ExternalInterruptionResumeController by inject()
     private val sleepTimerRequests: SleepTimerRequests by inject()
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var isLikedListLoaded = false
+    @Volatile private var localLikedLocations: Set<String> = emptySet()
+    @Volatile private var localLibraryLocations: Set<String> = emptySet()
     private var isShowLockscreenEnabled = true
     private var notificationButtons: List<NotificationButtonSetting> = NotificationButtonLayout.DEFAULT
     private var isShowDesktopLrc = false
@@ -264,6 +271,18 @@ class MelodiaPlaybackService : MediaSessionService() {
 
         serviceScope.launch {
             songLikeRepository.likedSongIds.collect {
+                updateMediaSessionButtons()
+                triggerNotificationUpdate()
+            }
+        }
+
+        serviceScope.launch {
+            combine(
+                localPlaylistRepository.likedLocations,
+                localLibraryRepository.tracks.map { list -> list.mapTo(HashSet()) { it.uri.toString() } }
+            ) { liked, library -> liked to library }.collect { (liked, library) ->
+                localLikedLocations = liked
+                localLibraryLocations = library
                 updateMediaSessionButtons()
                 triggerNotificationUpdate()
             }
@@ -865,6 +884,30 @@ class MelodiaPlaybackService : MediaSessionService() {
         }
     }
 
+    // 当前播放项属于本地曲库时返回其 location，喜欢走本地「我喜欢的音乐」
+    private fun currentLocalLikeLocation(): String? =
+        playerManager.currentQueueItem.value
+            ?.takeIf { it.radioId == 0L }
+            ?.localUri
+            ?.takeIf { it.isNotBlank() && it in localLibraryLocations }
+
+    private fun isCurrentLiked(songId: Long): Boolean {
+        currentLocalLikeLocation()?.let { return it in localLikedLocations }
+        return songId != -1L && songId in songLikeRepository.likedSongIds.value
+    }
+
+    private fun toggleCurrentLike(songId: Long) {
+        val location = currentLocalLikeLocation()
+        if (location != null) {
+            serviceScope.launch {
+                runCatching { localPlaylistRepository.toggleLiked(location) }
+                    .onFailure { AppLogger.w(TAG, "切换本地喜欢失败", it) }
+            }
+        } else if (songId != -1L) {
+            toggleLike(songId)
+        }
+    }
+
     private fun currentVisibleButtons(): List<NotificationButton> =
         NotificationButtonLayout.resolveVisibleForContext(
             layout = notificationButtons,
@@ -892,7 +935,7 @@ class MelodiaPlaybackService : MediaSessionService() {
         val builder = when (button) {
             NotificationButton.LIKE -> {
                 val songId = (mediaSession?.player ?: player)?.currentMediaItem?.mediaId?.toLongOrNull() ?: -1L
-                val isLiked = songId != -1L && songId in songLikeRepository.likedSongIds.value
+                val isLiked = isCurrentLiked(songId)
                 val icon = if (isLiked) CommandButton.ICON_HEART_FILLED else CommandButton.ICON_HEART_UNFILLED
                 val displayName = if (isLiked) "取消喜欢" else "喜欢"
                 CommandButton.Builder(icon)
@@ -1182,9 +1225,7 @@ class MelodiaPlaybackService : MediaSessionService() {
             when (customCommand.customAction) {
                 ACTION_TOGGLE_LIKE -> {
                     val songId = (mediaSession?.player ?: player)?.currentMediaItem?.mediaId?.toLongOrNull() ?: -1L
-                    if (songId != -1L) {
-                        toggleLike(songId)
-                    }
+                    toggleCurrentLike(songId)
                     return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
                 }
                 ACTION_TRASH_FM -> {
@@ -1298,7 +1339,7 @@ class MelodiaPlaybackService : MediaSessionService() {
                 .addAction(nextAction)
 
             val songId = currentItem?.mediaId?.toLongOrNull() ?: -1L
-            val isLiked = songId != -1L && songId in songLikeRepository.likedSongIds.value
+            val isLiked = isCurrentLiked(songId)
             for (button in currentVisibleButtons()) {
                 val action = when (button) {
                     NotificationButton.LIKE -> actionFactory.createCustomAction(

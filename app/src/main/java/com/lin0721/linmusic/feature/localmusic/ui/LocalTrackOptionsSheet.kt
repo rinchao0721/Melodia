@@ -15,6 +15,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -43,6 +44,8 @@ import com.lin0721.linmusic.core.ui.icons.AddToQueue
 import com.lin0721.linmusic.core.ui.icons.Play
 import com.lin0721.linmusic.core.ui.icons.Delete
 import com.lin0721.linmusic.core.ui.icons.Edit
+import com.lin0721.linmusic.core.ui.icons.Favorite
+import com.lin0721.linmusic.core.ui.icons.FavoriteFilled
 import com.lin0721.linmusic.core.ui.icons.PlaylistAdd
 import com.lin0721.linmusic.core.ui.icons.PlaylistRemove
 import com.lin0721.linmusic.core.ui.icons.Share
@@ -62,6 +65,8 @@ fun LocalTrackOptionsSheet(
     onDetailClick: () -> Unit,
     onDeleteClick: () -> Unit,
     onAddToPlaylistClick: () -> Unit,
+    isLiked: Boolean = false,
+    onToggleLikeClick: (() -> Unit)? = null,
     onRemoveFromPlaylistClick: (() -> Unit)? = null
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -133,6 +138,15 @@ fun LocalTrackOptionsSheet(
             }
             SheetOptionRow(icon = MelodiaIcons.AddToQueue, label = "下一首播放") {
                 runThenHide(onPlayNextClick)
+            }
+            if (onToggleLikeClick != null) {
+                SheetOptionRow(
+                    icon = if (isLiked) MelodiaIcons.FavoriteFilled else MelodiaIcons.Favorite,
+                    label = if (isLiked) "取消喜欢" else "喜欢",
+                    tint = if (isLiked) MaterialTheme.colorScheme.primary else MelodiaColors.TextPrimary.copy(alpha = 0.7f)
+                ) {
+                    runThenHide(onToggleLikeClick)
+                }
             }
             SheetOptionRow(icon = MelodiaIcons.PlaylistAdd, label = "加入本地歌单") {
                 runThenHide(onAddToPlaylistClick)

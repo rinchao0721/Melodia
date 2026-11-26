@@ -1,6 +1,8 @@
 package com.lin0721.linmusic.di
 
 import com.lin0721.linmusic.core.localmusic.LocalMusicApi
+import com.lin0721.linmusic.core.localmusic.data.LocalLibraryRepository as SharedLocalLibraryRepository
+import com.lin0721.linmusic.core.localmusic.data.LocalPlaylistRepository as SharedLocalPlaylistRepository
 import com.lin0721.linmusic.core.localmusic.db.LocalMusicDatabase
 import com.lin0721.linmusic.core.localmusic.db.LocalMusicDatabaseFactory
 import com.lin0721.linmusic.core.songquality.SongQualityCache
@@ -30,7 +32,9 @@ val localMusicModule = module {
     }
     single { get<LocalMusicDatabase>().localTrackDao() }
     single { get<LocalMusicDatabase>().localPlaylistDao() }
-    single { LocalPlaylistRepository(dao = get()) }
+    single { SharedLocalLibraryRepository(trackDao = get()) }
+    single { SharedLocalPlaylistRepository(playlistDao = get(), libraryRepository = get()) }
+    single { LocalPlaylistRepository(dao = get(), shared = get()) }
     single { LegacyImportedMusicStore(androidContext()) }
     single { LocalMusicSettings(androidContext()) }
     single { MediaStoreScanner(androidContext()) }

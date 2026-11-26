@@ -1,5 +1,6 @@
 package com.lin0721.linmusic
 
+import com.lin0721.linmusic.feature.localmusic.ui.rememberLocalLikeTarget
 import com.lin0721.linmusic.core.plugin.PluginContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
@@ -304,19 +305,22 @@ fun MelodiaApp() {
     // mini 栏＋按钮触发的"收藏到歌单"弹层，非 null 时显示
     var miniCollectSongId by remember { mutableStateOf<Long?>(null) }
     val podcastState by viewModel.podcastState.collectAsStateWithLifecycle()
+    val localLike = rememberLocalLikeTarget(currentQueueItem?.localUri?.takeIf { !podcastState.isPodcast })
     val miniPlayerLikeMode = when {
         !podcastState.isPodcast -> MiniPlayerLikeMode.Collect
         podcastState.canSubscribe -> MiniPlayerLikeMode.Subscribe
         else -> MiniPlayerLikeMode.Hidden
     }
-    val isMiniPlayerLiked = if (podcastState.isPodcast) {
-        podcastState.subscribed
-    } else {
-        currentTrack?.mediaId?.toLongOrNull()?.let { it in likedSongIds } ?: false
+    val isMiniPlayerLiked = when {
+        podcastState.isPodcast -> podcastState.subscribed
+        localLike != null -> localLike.isLiked
+        else -> currentTrack?.mediaId?.toLongOrNull()?.let { it in likedSongIds } ?: false
     }
     val onMiniPlayerLikeClick: () -> Unit = {
         if (podcastState.isPodcast) {
             viewModel.toggleSubscribe()
+        } else if (localLike != null) {
+            localLike.toggle()
         } else {
             currentTrack?.mediaId?.toLongOrNull()?.let { songId ->
                 if (isMiniPlayerLiked) {

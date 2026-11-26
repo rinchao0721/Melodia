@@ -49,11 +49,10 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lin0721.linmusic.LocalBottomOverlayInset
 import com.lin0721.linmusic.core.localmusic.data.LocalSearch
-import com.lin0721.linmusic.core.localmusic.domain.LocalTrack as SharedLocalTrack
-import com.lin0721.linmusic.core.localmusic.domain.LocalTrackSource as SharedLocalTrackSource
 import com.lin0721.linmusic.core.localmusic.domain.buildLocalLibraryIndex as buildSharedLocalLibraryIndex
 import com.lin0721.linmusic.core.localmusic.ui.LocalLibraryTab
 import com.lin0721.linmusic.core.localmusic.ui.ResumePlaybackInfo
+import com.lin0721.linmusic.feature.localmusic.domain.toShared
 import com.lin0721.linmusic.core.ui.components.EmptyState
 import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
 import com.lin0721.linmusic.core.ui.components.SecondaryScreenScaffold
@@ -544,7 +543,7 @@ private fun ResumePlaybackRow(
 }
 
 @Composable
-private fun CountAndSortBar(
+internal fun CountAndSortBar(
     countText: String,
     sortOrder: LocalMusicSortOrder,
     showSortMenu: Boolean,
@@ -746,23 +745,7 @@ private fun LibrarySearchResultList(
 ) {
     val searchResult = remember(query, library) {
         val sharedIndex = buildSharedLocalLibraryIndex(
-            library.tracks.map { track ->
-                SharedLocalTrack(
-                    location = track.uri.toString(),
-                    mediaStoreId = track.mediaStoreId,
-                    title = track.title,
-                    artist = track.artist,
-                    album = track.album,
-                    durationMs = track.durationMs,
-                    sizeBytes = track.sizeBytes,
-                    path = track.path,
-                    folder = null,
-                    dateAddedMs = track.dateAddedMs,
-                    dateModifiedMs = track.dateAddedMs,
-                    source = SharedLocalTrackSource.EXTERNAL,
-                    songId = track.songId
-                )
-            }
+            library.tracks.map { it.toShared() }
         )
         LocalSearch.search(query, sharedIndex)
     }

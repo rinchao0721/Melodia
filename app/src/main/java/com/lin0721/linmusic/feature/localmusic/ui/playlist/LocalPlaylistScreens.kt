@@ -3,9 +3,12 @@ package com.lin0721.linmusic.feature.localmusic.ui.playlist
 import com.lin0721.linmusic.core.ui.components.MelodiaTextButton
 import com.lin0721.linmusic.core.ui.components.rememberDragReorderState
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -29,6 +32,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -45,6 +49,7 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
@@ -63,6 +68,8 @@ import com.lin0721.linmusic.core.ui.theme.LocalUiMotion
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
+import com.lin0721.linmusic.feature.library.ui.LibrarySpecialCover
+import com.lin0721.linmusic.feature.library.ui.SpecialCoverKind
 import com.lin0721.linmusic.feature.localmusic.domain.LocalPlaylist
 import com.lin0721.linmusic.feature.localmusic.domain.LocalTrack
 import com.lin0721.linmusic.feature.localmusic.ui.LocalLibraryStateGate
@@ -80,6 +87,7 @@ import com.lin0721.linmusic.core.ui.icons.ArrowBack
 import com.lin0721.linmusic.core.ui.icons.Close
 import com.lin0721.linmusic.core.ui.icons.Drag
 import com.lin0721.linmusic.core.ui.icons.Edit
+import com.lin0721.linmusic.core.ui.icons.FolderOpen
 import com.lin0721.linmusic.core.ui.icons.MoreVert
 import com.lin0721.linmusic.core.ui.icons.Remove
 
@@ -92,13 +100,30 @@ fun LocalPlaylistsScreen(
 ) {
     val playlists by viewModel.playlists.collectAsStateWithLifecycle()
     var showCreate by remember { mutableStateOf(false) }
+    var showTopCreateMenu by remember { mutableStateOf(false) }
+    var showEmptyCreateMenu by remember { mutableStateOf(false) }
+    val folderPickerLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { treeUri ->
+        if (treeUri != null) viewModel.createPlaylistFromFolder(treeUri)
+    }
+
+    LaunchedEffect(Unit) {
+        viewModel.ensureLikedPlaylist()
+    }
 
     SecondaryScreenScaffold(
         title = "本地歌单",
         onBack = navigation.onBack,
         actions = {
-            MelodiaIconButton(onClick = { showCreate = true }) {
-                Icon(MelodiaIcons.Plus, contentDescription = "新建歌单", tint = MelodiaColors.TextPrimary)
+            Box {
+                MelodiaIconButton(onClick = { showTopCreateMenu = true }) {
+                    Icon(MelodiaIcons.Plus, contentDescription = "新建歌单", tint = MelodiaColors.TextPrimary)
+                }
+                CreatePlaylistDropdownMenu(
+                    expanded = showTopCreateMenu,
+                    onDismiss = { showTopCreateMenu = false },
+                    onCreateEmpty = { showCreate = true },
+                    onCreateFromFolder = { folderPickerLauncher.launch(null) }
+                )
             }
         }
     ) {
@@ -112,8 +137,16 @@ fun LocalPlaylistsScreen(
                                 title = "建一个自己的歌单",
                                 subtitle = "在歌曲的更多菜单里也能直接加入歌单。"
                             )
-                            MelodiaButton(onClick = { showCreate = true }) {
-                                Text("新建歌单", color = MaterialTheme.colorScheme.onPrimary)
+                            Box {
+                                MelodiaButton(onClick = { showEmptyCreateMenu = true }) {
+                                    Text("新建歌单", color = MaterialTheme.colorScheme.onPrimary)
+                                }
+                                CreatePlaylistDropdownMenu(
+                                    expanded = showEmptyCreateMenu,
+                                    onDismiss = { showEmptyCreateMenu = false },
+                                    onCreateEmpty = { showCreate = true },
+                                    onCreateFromFolder = { folderPickerLauncher.launch(null) }
+                                )
                             }
                         }
                     }
@@ -128,7 +161,7 @@ fun LocalPlaylistsScreen(
                                 .padding(horizontal = MelodiaSpacing.md, vertical = 10.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            LocalPlaylistCover(tracks = playlist.tracks, size = 52.dp)
+                            LocalPlaylistEntryCover(playlist, 52.dp)
                             Spacer(Modifier.width(MelodiaSpacing.md))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
@@ -139,8 +172,9 @@ fun LocalPlaylistsScreen(
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
+                                val folderNote = if (playlist.folderSources.isNotEmpty()) " · ${playlist.folderSources.size} 个文件夹" else ""
                                 Text(
-                                    text = "${playlist.tracks.size} 首",
+                                    text = "${playlist.tracks.size} 首$folderNote",
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     fontSize = 12.sp,
                                     modifier = Modifier.padding(top = 2.dp)
@@ -166,6 +200,31 @@ fun LocalPlaylistsScreen(
 }
 
 @Composable
+private fun CreatePlaylistDropdownMenu(
+    expanded: Boolean,
+    onDismiss: () -> Unit,
+    onCreateEmpty: () -> Unit,
+    onCreateFromFolder: () -> Unit
+) {
+    DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
+        DropdownMenuItem(
+            text = { Text("新建空歌单") },
+            onClick = {
+                onDismiss()
+                onCreateEmpty()
+            }
+        )
+        DropdownMenuItem(
+            text = { Text("从文件夹创建") },
+            onClick = {
+                onDismiss()
+                onCreateFromFolder()
+            }
+        )
+    }
+}
+
+@Composable
 fun LocalPlaylistScreen(
     playlistId: Long,
     navigation: LocalMusicNavigation,
@@ -179,6 +238,7 @@ fun LocalPlaylistScreen(
     var showMenu by remember { mutableStateOf(false) }
     var showRename by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
+    var removeSourceTarget by remember { mutableStateOf<String?>(null) }
 
     BackHandler(enabled = editing) { editing = false }
 
@@ -205,19 +265,21 @@ fun LocalPlaylistScreen(
                                         Icon(MelodiaIcons.Edit, contentDescription = "编辑歌单", tint = MelodiaColors.TextPrimary)
                                     }
                                 }
-                                Box {
-                                    MelodiaIconButton(onClick = { showMenu = true }) {
-                                        Icon(MelodiaIcons.MoreVert, contentDescription = "更多", tint = MelodiaColors.TextPrimary)
-                                    }
-                                    DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
-                                        DropdownMenuItem(text = { Text("重命名") }, onClick = {
-                                            showMenu = false
-                                            showRename = true
-                                        })
-                                        DropdownMenuItem(text = { Text("删除歌单", color = MaterialTheme.colorScheme.error) }, onClick = {
-                                            showMenu = false
-                                            confirmDelete = true
-                                        })
+                                if (!playlist.isSystem) {
+                                    Box {
+                                        MelodiaIconButton(onClick = { showMenu = true }) {
+                                            Icon(MelodiaIcons.MoreVert, contentDescription = "更多", tint = MelodiaColors.TextPrimary)
+                                        }
+                                        DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                                            DropdownMenuItem(text = { Text("重命名") }, onClick = {
+                                                showMenu = false
+                                                showRename = true
+                                            })
+                                            DropdownMenuItem(text = { Text("删除歌单", color = MaterialTheme.colorScheme.error) }, onClick = {
+                                                showMenu = false
+                                                confirmDelete = true
+                                            })
+                                        }
                                     }
                                 }
                             }
@@ -232,12 +294,21 @@ fun LocalPlaylistScreen(
                             }
                         }
                     }
+                    if (playlist.folderSources.isNotEmpty() && !playlist.isSystem) {
+                        item(key = "folder_sources") {
+                            PlaylistFolderSourcesSection(
+                                folderSources = playlist.folderSources,
+                                resolveName = viewModel::folderDisplayName,
+                                onRemoveSource = { removeSourceTarget = it }
+                            )
+                        }
+                    }
                     if (playlist.tracks.isEmpty()) {
                         item(key = "empty") {
                             EmptyState(
                                 icon = MelodiaIcons.Queue,
                                 title = "歌单里还没有歌",
-                                subtitle = "在歌曲的更多菜单里选择「加入本地歌单」。",
+                                subtitle = if (playlist.isLiked) "在歌曲菜单或播放页点击喜欢。" else "在歌曲的更多菜单里选择「加入本地歌单」。",
                                 modifier = Modifier.padding(top = MelodiaSpacing.xl)
                             )
                         }
@@ -292,6 +363,85 @@ fun LocalPlaylistScreen(
             }
         )
     }
+
+    if (removeSourceTarget != null && playlist != null) {
+        val target = removeSourceTarget!!
+        val folderName = remember(target) { viewModel.folderDisplayName(target) }
+        AlertDialog(
+            onDismissRequest = { removeSourceTarget = null },
+            containerColor = MaterialTheme.colorScheme.surface,
+            shape = MaterialTheme.shapes.medium,
+            title = { Text("移除文件夹来源", fontWeight = FontWeight.Bold) },
+            text = { Text("确定要从「${playlist.name}」移除文件夹来源「$folderName」吗？歌曲文件不会被删除。") },
+            confirmButton = {
+                MelodiaTextButton(onClick = {
+                    removeSourceTarget = null
+                    viewModel.removeFolderSource(playlist.id, target)
+                }) {
+                    Text("移除", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                MelodiaTextButton(onClick = { removeSourceTarget = null }) { Text("取消", color = MaterialTheme.colorScheme.onSurface) }
+            }
+        )
+    }
+}
+
+@Composable
+private fun PlaylistFolderSourcesSection(
+    folderSources: List<String>,
+    resolveName: (String) -> String,
+    onRemoveSource: (String) -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = MelodiaSpacing.md, vertical = MelodiaSpacing.sm),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        Text(
+            text = "文件夹来源",
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Medium
+        )
+        folderSources.forEach { source ->
+            val name = remember(source) { resolveName(source) }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(MelodiaColors.Surface)
+                    .padding(start = 12.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = MelodiaIcons.FolderOpen,
+                    contentDescription = null,
+                    tint = MelodiaColors.Accent,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = name,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontSize = 13.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
+                MelodiaIconButton(onClick = { onRemoveSource(source) }) {
+                    Icon(
+                        imageVector = MelodiaIcons.Close,
+                        contentDescription = "移除文件夹来源",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+        }
+    }
 }
 
 @Composable
@@ -302,8 +452,8 @@ private fun PlaylistHeroInfo(playlist: LocalPlaylist, coverUrl: String?) {
     // 1~3 首显示单封面时才允许查看大图，4 首以上为拼图
     val singleCoverUrl = coverUrl?.takeIf { it.isNotBlank() && playlist.tracks.size in 1..3 }
     Row(verticalAlignment = Alignment.Bottom) {
-        LocalPlaylistCover(
-            tracks = playlist.tracks,
+        LocalPlaylistEntryCover(
+            playlist = playlist,
             size = PlaylistHeroCoverSize,
             modifier = Modifier
                 .onGloballyPositioned { coverBounds = it.toCoverPreviewBounds() }
@@ -446,5 +596,15 @@ private fun MissingPlaylist(onBack: () -> Unit) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             EmptyState(icon = MelodiaIcons.Queue, title = "歌单不存在或已删除")
         }
+    }
+}
+
+// 「我喜欢的音乐」用统一的喜欢封面，其余按歌曲拼图
+@Composable
+private fun LocalPlaylistEntryCover(playlist: LocalPlaylist, size: Dp, modifier: Modifier = Modifier) {
+    if (playlist.isLiked) {
+        LibrarySpecialCover(kind = SpecialCoverKind.Liked, modifier = Modifier.size(size))
+    } else {
+        LocalPlaylistCover(tracks = playlist.tracks, size = size, modifier = modifier)
     }
 }

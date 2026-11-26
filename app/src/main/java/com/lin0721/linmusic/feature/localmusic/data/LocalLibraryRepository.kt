@@ -195,13 +195,19 @@ class LocalLibraryRepository(
                 val treeUri = permission.uri
                 AuthorizedFolder(
                     treeUri = treeUri.toString(),
-                    name = DocumentFile.fromTreeUri(context, treeUri)?.name
-                        ?: Uri.decode(treeUri.lastPathSegment.orEmpty()).substringAfterLast(':'),
+                    name = folderDisplayName(treeUri),
                     importedCount = dao.countImportedWithPrefix(importedPrefixOf(treeUri))
                 )
             }
             .sortedBy { it.name.lowercase() }
     }
+
+    fun folderDisplayName(treeUri: Uri): String =
+        DocumentFile.fromTreeUri(context, treeUri)?.name
+            ?: Uri.decode(treeUri.lastPathSegment.orEmpty()).substringAfterLast(':').ifBlank { treeUri.toString() }
+
+    fun folderDisplayName(treeUri: String): String =
+        runCatching { folderDisplayName(Uri.parse(treeUri)) }.getOrDefault(treeUri)
 
     // 移除授权时一并移出该文件夹下导入的曲目，释放授权后这些文件已不可读
     suspend fun removeAuthorizedFolder(treeUri: String) = withContext(Dispatchers.IO) {

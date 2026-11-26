@@ -13,9 +13,11 @@ import com.lin0721.linmusic.core.network.toUserMessage
 import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.player.PlaybackPreferences
 import com.lin0721.linmusic.core.player.QueueItem
+import com.lin0721.linmusic.core.localmusic.data.synthesizeLocalPlaylistTracks
 import com.lin0721.linmusic.core.localmusic.ui.LocalLibraryTab
 import com.lin0721.linmusic.core.localmusic.ui.ResumePlaybackInfo
 import com.lin0721.linmusic.core.localmusic.ui.resolveResumePlayback
+import com.lin0721.linmusic.feature.localmusic.domain.toShared
 import com.lin0721.linmusic.core.songlike.LoadLikedSongIdsUseCase
 import com.lin0721.linmusic.core.songlike.SongLikeRepository
 import com.lin0721.linmusic.core.source.MusicPlatform
@@ -27,7 +29,6 @@ import com.lin0721.linmusic.feature.localmusic.data.LocalPlaylistRepository
 import com.lin0721.linmusic.feature.localmusic.data.scan.ImportResult
 import com.lin0721.linmusic.feature.localmusic.domain.LocalLibraryIndex
 import com.lin0721.linmusic.feature.localmusic.domain.LocalPlaylist
-import com.lin0721.linmusic.feature.localmusic.domain.resolvePlaylistTracks
 import com.lin0721.linmusic.feature.localmusic.domain.LocalTrack
 import com.lin0721.linmusic.feature.localmusic.domain.buildLocalLibraryIndex
 import com.lin0721.linmusic.feature.localmusic.domain.queueSongId
@@ -130,6 +131,9 @@ class LocalMusicViewModel(
 
     val likedSongIds: StateFlow<Set<Long>> = songLikeRepository.likedSongIds
 
+    val likedLocations: StateFlow<Set<String>> = playlistRepository.likedLocations
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptySet())
+
     val collectState: StateFlow<PlaylistCollectState> = songCollectDelegate.state
 
     private val _uiState = MutableStateFlow<LocalMusicUiState>(LocalMusicUiState.Loading)
@@ -146,7 +150,26 @@ class LocalMusicViewModel(
 
     val playlists: StateFlow<List<LocalPlaylist>> = combine(playlistRepository.playlists, library) { records, index ->
         val tracksByUri = index.tracks.associateBy { it.uri.toString() }
-        records.map { LocalPlaylist(it.id, it.name, it.updatedAt, resolvePlaylistTracks(it.trackUris, tracksByUri)) }
+        val sharedTracks = index.tracks.map { it.toShared() }
+        val sharedByLocation = sharedTracks.associateBy { it.location }
+        records.map { record ->
+            val synthesized = synthesizeLocalPlaylistTracks(
+                visibleTracks = sharedTracks,
+                tracksByLocation = sharedByLocation,
+                folderSources = record.folderSources,
+                removedLocations = record.removedUris,
+                manualTrackLocations = record.trackUris
+            )
+            LocalPlaylist(
+                id = record.id,
+                name = record.name,
+                updatedAt = record.updatedAt,
+                tracks = synthesized.mapNotNull { tracksByUri[it.location] },
+                folderSources = record.folderSources,
+                isPinned = record.isPinned,
+                systemKind = record.systemKind
+            )
+        }.sortedByDescending { it.isLiked }
     }
         .flowOn(Dispatchers.Default)
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
@@ -381,6 +404,26 @@ class LocalMusicViewModel(
         _uiState.value = state.copy(detailTrack = null)
     }
 
+    fun ensureLikedPlaylist() {
+        viewModelScope.launch {
+            runCatching { playlistRepository.ensureLikedPlaylist() }
+                .onFailure { AppLogger.e(TAG, "初始化本地喜欢歌单失败", it) }
+        }
+    }
+
+    fun toggleLiked(track: LocalTrack) {
+        viewModelScope.launch {
+            runCatching { playlistRepository.toggleLiked(track.uri.toString()) }
+                .onSuccess { liked ->
+                    _toastEvent.emit(if (liked) "已添加到我喜欢的音乐" else "已从我喜欢的音乐中移除")
+                }
+                .onFailure {
+                    AppLogger.e(TAG, "切换本地喜欢失败", it)
+                    _toastEvent.emit("操作失败")
+                }
+        }
+    }
+
     fun toggleLikeSong(songId: Long, like: Boolean) {
         viewModelScope.launch {
             songLikeRepository.likeSong(songId, like).collect { result ->
@@ -527,6 +570,43 @@ class LocalMusicViewModel(
             }
         }
     }
+
+    fun createPlaylistFromFolder(treeUri: Uri) {
+        viewModelScope.launch {
+            _isImporting.value = true
+            runCatching {
+                val result = repository.importFolder(treeUri)
+                val folderName = repository.folderDisplayName(treeUri)
+                val id = playlistRepository.create(folderName)
+                playlistRepository.addFolderSource(id, treeUri.toString())
+                folderName to result
+            }.onSuccess { (folderName, result) ->
+                val tip = if (result.addedCount > 0) {
+                    "已创建「$folderName」，导入 ${result.addedCount} 首歌曲"
+                } else {
+                    "已从文件夹创建「$folderName」"
+                }
+                _toastEvent.emit(tip)
+            }.onFailure {
+                AppLogger.e(TAG, "从文件夹创建本地歌单失败", it)
+                _toastEvent.emit("从文件夹创建歌单失败")
+            }
+            _isImporting.value = false
+        }
+    }
+
+    fun removeFolderSource(playlistId: Long, folderUri: String) {
+        viewModelScope.launch {
+            runCatching { playlistRepository.removeFolderSource(playlistId, folderUri) }
+                .onSuccess { _toastEvent.emit("已移除文件夹来源") }
+                .onFailure {
+                    AppLogger.e(TAG, "移除文件夹来源失败", it)
+                    _toastEvent.emit("移除文件夹来源失败")
+                }
+        }
+    }
+
+    fun folderDisplayName(folderUri: String): String = repository.folderDisplayName(folderUri)
 
     fun togglePlaylistMembership(playlist: LocalPlaylist, track: LocalTrack) {
         val uri = track.uri.toString()

@@ -157,11 +157,13 @@ fun ProfileSidebar(
             title = "我的云盘",
             onClick = withAccess(canOpenCloud, onNavigateToCloud)
         )
-        SidebarMenuItem(
-            icon = MelodiaIcons.Download,
-            title = "下载管理",
-            onClick = withLogin(onNavigateToDownloads)
-        )
+        if (!isLocalMode) {
+            SidebarMenuItem(
+                icon = MelodiaIcons.Download,
+                title = "下载管理",
+                onClick = withLogin(onNavigateToDownloads)
+            )
+        }
         SidebarMenuItem(
             icon = MelodiaIcons.Settings,
             title = "设置和隐私",

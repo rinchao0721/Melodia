@@ -36,6 +36,7 @@ import com.lin0721.linmusic.feature.localmusic.ui.collection.LocalArtistScreen
 import com.lin0721.linmusic.feature.localmusic.ui.collection.LocalArtistsScreen
 import com.lin0721.linmusic.feature.localmusic.ui.collection.LocalFolderScreen
 import com.lin0721.linmusic.feature.localmusic.ui.collection.LocalFoldersScreen
+import com.lin0721.linmusic.feature.localmusic.ui.library.LocalDownloadsScreen
 import com.lin0721.linmusic.feature.localmusic.ui.library.LocalLibraryScreen
 import com.lin0721.linmusic.feature.localmusic.ui.playlist.LocalPlaylistScreen
 import com.lin0721.linmusic.feature.localmusic.ui.playlist.LocalPlaylistsScreen
@@ -305,7 +306,15 @@ fun MelodiaNavHost(
                     com.lin0721.linmusic.feature.cloud.ui.CloudScreen(onBack = onBack)
                 }
                 is Screen.Downloads -> {
-                    com.lin0721.linmusic.feature.downloads.ui.DownloadsScreen(onBack = onBack)
+                    val browsePlatform by homeViewModel.browsePlatform.collectAsStateWithLifecycle()
+                    if (browsePlatform == MusicPlatform.LOCAL) {
+                        LocalDownloadsScreen(
+                            navigation = localMusicNavigation,
+                            onOpenSidebar = onOpenSidebar
+                        )
+                    } else {
+                        com.lin0721.linmusic.feature.downloads.ui.DownloadsScreen(onBack = onBack)
+                    }
                 }
                 is Screen.Message -> {
                     com.lin0721.linmusic.feature.message.ui.MessageScreen(

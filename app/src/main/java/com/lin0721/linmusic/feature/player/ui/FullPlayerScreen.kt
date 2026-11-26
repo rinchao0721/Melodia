@@ -1,5 +1,6 @@
 package com.lin0721.linmusic.feature.player.ui
 
+import com.lin0721.linmusic.feature.localmusic.ui.rememberLocalLikeTarget
 import kotlinx.coroutines.flow.flowOf
 import com.lin0721.linmusic.core.preferences.PlayerCardEntries
 import com.lin0721.linmusic.core.plugin.LocalPluginCards
@@ -313,14 +314,24 @@ private fun FullPlayerScreenContent(
     val userProfile by viewModel.userProfile.collectAsStateWithLifecycle()
     val kugouAccount by viewModel.kugouAccount.collectAsStateWithLifecycle()
     var collectSongId by remember { mutableStateOf<Long?>(null) }
-    // 未收藏一键喜欢，已收藏打开加入歌单弹窗
+    val localLike = rememberLocalLikeTarget(currentQueueItem?.takeIf { it.radioId == 0L }?.localUri)
+    val effectiveSongDetailState = if (localLike != null) {
+        songDetailState.copy(isLiked = localLike.isLiked)
+    } else {
+        songDetailState
+    }
+    // 未收藏一键喜欢，已收藏打开加入歌单弹窗；本地库曲目直接走本地喜欢
     val openCollectSheet: (Long) -> Unit = { songId ->
         collectSongId = songId
         viewModel.prepareCollectDialog(songId)
     }
     val onCollectButtonClick: () -> Unit = {
-        currentTrack.mediaId.toLongOrNull()?.let { songId ->
-            if (songDetailState.isLiked) openCollectSheet(songId) else viewModel.quickLike(songId)
+        if (localLike != null) {
+            localLike.toggle()
+        } else {
+            currentTrack.mediaId.toLongOrNull()?.let { songId ->
+                if (songDetailState.isLiked) openCollectSheet(songId) else viewModel.quickLike(songId)
+            }
         }
     }
     CollectPromptEffect(viewModel.collectPromptEvent, openCollectSheet)
@@ -761,7 +772,7 @@ private fun FullPlayerScreenContent(
         FullPlayerLayoutParts(
             title = displayedTitle,
             artist = displayedArtist,
-            songState = songDetailState,
+            songState = effectiveSongDetailState,
             podcast = podcast,
             colors = colors,
             coverUrl = coverUrl,
@@ -946,7 +957,7 @@ private fun FullPlayerScreenContent(
                             )
                         }
                     } else fullPlayerPlaybackSection(
-                        songState = songDetailState,
+                        songState = effectiveSongDetailState,
                         colors = colors,
                         coverUrl = coverUrl,
                         previousCoverUrl = previousCoverUrl,
@@ -1036,7 +1047,7 @@ private fun FullPlayerScreenContent(
                     showTitle = scrollMetrics.showTitleInBar && showInfoCards,
                     isPlaying = isPlaying,
                     onTogglePlay = onTogglePlay,
-                    isLiked = if (podcast.isPodcast) podcast.subscribed else songDetailState.isLiked,
+                    isLiked = if (podcast.isPodcast) podcast.subscribed else effectiveSongDetailState.isLiked,
                     isPodcast = podcast.isPodcast,
                     onToggleLike = if (podcast.isPodcast) viewModel::toggleSubscribe else onCollectButtonClick,
                     backgroundColor = themedCoverBase(colors.base),
@@ -1134,7 +1145,7 @@ private fun FullPlayerScreenContent(
                     SongInfo(
                         title = displayedTitle,
                         artist = displayedArtist,
-                        isLiked = songDetailState.isLiked,
+                        isLiked = effectiveSongDetailState.isLiked,
                         onToggleLike = onCollectButtonClick,
                         onArtistClick = openSongArtist,
                         onAlbumClick = openSongAlbum,
@@ -1304,7 +1315,7 @@ private fun FullPlayerScreenContent(
         }
 
         FullPlayerSheets(
-            songState = songDetailState,
+            songState = effectiveSongDetailState,
             showQueueSheet = showQueueSheet,
             showMoreOptionsSheet = showMoreOptionsSheet,
             collectSongId = collectSongId,

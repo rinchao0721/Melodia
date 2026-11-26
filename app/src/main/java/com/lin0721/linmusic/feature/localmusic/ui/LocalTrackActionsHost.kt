@@ -49,6 +49,7 @@ fun LocalTrackActionsHost(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val userProfile by viewModel.userProfile.collectAsStateWithLifecycle()
     val likedSongIds by viewModel.likedSongIds.collectAsStateWithLifecycle()
+    val likedLocations by viewModel.likedLocations.collectAsStateWithLifecycle()
     val collectState by viewModel.collectState.collectAsStateWithLifecycle()
     val isLocalMode by viewModel.isLocalMode.collectAsStateWithLifecycle()
     val playlists by viewModel.playlists.collectAsStateWithLifecycle()
@@ -84,13 +85,17 @@ fun LocalTrackActionsHost(
         is LocalMusicMenuState.Matched -> {
             val track = menu.track
             val fullTrack = menu.fullTrack
+            val isMatchedLiked = if (isLocalMode) track.uri.toString() in likedLocations else fullTrack.id in likedSongIds
             PlaylistSongOptionsSheet(
                 track = fullTrack,
-                isLiked = fullTrack.id in likedSongIds,
+                isLiked = isMatchedLiked,
                 isLoggedIn = !isLocalMode && userProfile != null,
+                requireLoginForLike = !isLocalMode,
                 onDismiss = { viewModel.closeTrackMenu() },
                 onAddToPlayNext = { viewModel.addTrackToPlayNext(it) },
-                onToggleLike = { songId, like -> if (!isLocalMode) viewModel.toggleLikeSong(songId, like) },
+                onToggleLike = { songId, like ->
+                    if (isLocalMode) viewModel.toggleLiked(track) else viewModel.toggleLikeSong(songId, like)
+                },
                 onCollectClick = { songId ->
                     if (isLocalMode) {
                         viewModel.openPlaylistPicker(listOf(track))
@@ -152,6 +157,8 @@ fun LocalTrackActionsHost(
                 onDetailClick = { viewModel.openDetail(track) },
                 onDeleteClick = { deleteTarget = track },
                 onAddToPlaylistClick = { viewModel.openPlaylistPicker(listOf(track)) },
+                isLiked = track.uri.toString() in likedLocations,
+                onToggleLikeClick = { viewModel.toggleLiked(track) },
                 onRemoveFromPlaylistClick = menu.playlistId?.let { playlistId -> { viewModel.removeFromPlaylist(playlistId, track) } }
             )
         }
@@ -160,7 +167,7 @@ fun LocalTrackActionsHost(
     pickerTracks?.let { tracks ->
         LocalPlaylistPickerSheet(
             tracks = tracks,
-            playlists = playlists,
+            playlists = playlists.filterNot { it.isSystem },
             onDismiss = { viewModel.closePlaylistPicker() },
             onCreate = { name -> viewModel.createPlaylist(name, tracks) },
             onToggleSingle = { playlist, track -> viewModel.togglePlaylistMembership(playlist, track) },

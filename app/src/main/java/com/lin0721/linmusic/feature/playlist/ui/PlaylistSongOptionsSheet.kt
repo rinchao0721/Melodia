@@ -64,6 +64,7 @@ fun PlaylistSongOptionsSheet(
     showArtistOption: Boolean = true,
     // 外部平台搜索结果不在任何歌单与队列里，无法记住红心，也没有网易云专辑
     showLikeOption: Boolean = true,
+    requireLoginForLike: Boolean = true,
     showAlbumOption: Boolean = true,
     // 仅当前歌单创建者可从歌单中移除歌曲，由调用方按登录态与创建者身份算好传入
     canRemoveFromPlaylist: Boolean = false,
@@ -181,7 +182,7 @@ fun PlaylistSongOptionsSheet(
                         iconTint = likeIconTint,
                         onClick = {
                             onDismiss()
-                            if (!isLoggedIn) {
+                            if (!isLoggedIn && requireLoginForLike) {
                                 onRequireLogin()
                             } else {
                                 onToggleLike(track.id, !isLiked)

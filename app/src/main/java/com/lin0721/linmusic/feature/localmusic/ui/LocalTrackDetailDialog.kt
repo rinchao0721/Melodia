@@ -30,7 +30,11 @@ fun LocalTrackDetailDialog(track: LocalTrack, onDismiss: () -> Unit) {
     val extension = track.path?.substringAfterLast('.', "")?.uppercase()?.takeIf { it.isNotBlank() }
         ?: track.uri.toString().substringAfterLast('.', "").uppercase().takeIf { it.isNotBlank() }
         ?: "未知"
-    val sourceLabel = if (track.source == LocalTrackSource.MELODIA_DOWNLOAD) "Melodia 下载" else "设备本地文件"
+    val sourceLabel = if (track.source == LocalTrackSource.MELODIA_DOWNLOAD || track.source == LocalTrackSource.DOWNLOAD) {
+        "Melodia 下载"
+    } else {
+        "设备本地文件"
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
