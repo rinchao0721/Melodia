@@ -40,6 +40,19 @@ enum class LocalLibraryNav(val label: String) {
     DOWNLOADS("下载")
 }
 
+enum class LocalLibraryFilter(val label: String) {
+    PLAYLIST("歌单"),
+    ALBUM("专辑"),
+    ARTIST("歌手"),
+    FOLDER("文件夹")
+}
+
+enum class LocalLibrarySortOrder(val label: String) {
+    RECENTLY_ADDED("最近添加"),
+    NAME("名称"),
+    CUSTOM("自定义")
+}
+
 // 桌面本地模式曲库状态与操作协调
 class LocalLibraryDesktopViewModel(
     private val localLibrary: LocalLibraryRepository,
@@ -61,6 +74,15 @@ class LocalLibraryDesktopViewModel(
 
     private val _selectedArtist = MutableStateFlow<LocalArtist?>(null)
     val selectedArtist: StateFlow<LocalArtist?> = _selectedArtist.asStateFlow()
+
+    private val _sidebarFilter = MutableStateFlow<LocalLibraryFilter?>(null)
+    val sidebarFilter: StateFlow<LocalLibraryFilter?> = _sidebarFilter.asStateFlow()
+
+    private val _sidebarQuery = MutableStateFlow("")
+    val sidebarQuery: StateFlow<String> = _sidebarQuery.asStateFlow()
+
+    private val _sidebarSortOrder = MutableStateFlow(LocalLibrarySortOrder.RECENTLY_ADDED)
+    val sidebarSortOrder: StateFlow<LocalLibrarySortOrder> = _sidebarSortOrder.asStateFlow()
 
     val index: StateFlow<LocalLibraryIndex> = localLibrary.sharedLibrary.observeIndex()
         .stateIn(scope, SharingStarted.Eagerly, LocalLibraryIndex(emptyList(), emptyList(), emptyList(), emptyList()))
@@ -106,6 +128,24 @@ class LocalLibraryDesktopViewModel(
         _selectedArtist.value = artist
     }
 
+    fun toggleSidebarFilter(filter: LocalLibraryFilter) {
+        _sidebarFilter.value = if (_sidebarFilter.value == filter) null else filter
+    }
+
+    fun updateSidebarQuery(query: String) {
+        _sidebarQuery.value = query
+    }
+
+    fun setSidebarSortOrder(order: LocalLibrarySortOrder) {
+        _sidebarSortOrder.value = order
+    }
+
+    fun rescan() {
+        localLibrary.rescan()
+    }
+
+    fun coverUriOf(track: LocalTrack): String? = localLibrary.coverUri(track.toDesktopTrack())
+
     fun searchLocal(query: String): LocalSearchResult = LocalSearch.search(query, index.value)
 
     fun shuffleAll(tracks: List<LocalTrack>) {
@@ -117,6 +157,11 @@ class LocalLibraryDesktopViewModel(
     fun playTracks(tracks: List<LocalTrack>, startIndex: Int) {
         if (tracks.isEmpty()) return
         controller.playQueue(tracks.map(::toQueueItem), startIndex.coerceIn(0, tracks.lastIndex))
+    }
+
+    fun addTracksToPlayNext(tracks: List<LocalTrack>) {
+        if (tracks.isEmpty()) return
+        controller.addToPlayNext(tracks.map(::toQueueItem))
     }
 
     fun resumeLastQueue() {

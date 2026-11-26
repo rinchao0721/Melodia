@@ -67,6 +67,7 @@ import com.lin0721.linmusic.desktop.ui.components.SimpleMenuItem
 import com.lin0721.linmusic.desktop.ui.components.TooltipSide
 import com.lin0721.linmusic.desktop.ui.components.uiTween
 import com.lin0721.linmusic.desktop.ui.local.AddLocalPlaylistDialog
+import com.lin0721.linmusic.desktop.ui.local.LocalLibraryDesktopViewModel
 import com.lin0721.linmusic.desktop.ui.settings.SettingSwitch
 import com.lin0721.linmusic.desktop.ui.shell.LocalDesktopNavigator
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
@@ -127,13 +128,13 @@ internal fun LibraryPopupMenu(
 // 排序名与当前视图图标合成一个按钮，点击弹出排序与视图菜单；showSortLabel 为 false 时只剩图标
 @Composable
 internal fun LibrarySortViewMenu(
-    viewModel: LibraryViewModel,
+    currentSortLabel: String,
+    sortOptions: List<Pair<String, Boolean>>,
+    onSelectSortIndex: (Int) -> Unit,
     viewMode: LibraryViewMode,
     onViewModeChange: (LibraryViewMode) -> Unit,
-    onSortOrderChange: (LibrarySortOrder) -> Unit,
     showSortLabel: Boolean
 ) {
-    val sortOrder by viewModel.sortOrder.collectAsState()
     var expanded by remember { mutableStateOf(false) }
     var anchorWidth by remember { mutableStateOf(0.dp) }
     val density = LocalDensity.current
@@ -150,7 +151,7 @@ internal fun LibrarySortViewMenu(
                     exit = fadeOut(uiTween(SEARCH_ANIMATION_MS)) + shrinkHorizontally(uiTween(SEARCH_ANIMATION_MS))
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(sortLabel(sortOrder), color = DesktopColors.TextGray, fontSize = 13.sp, maxLines = 1, softWrap = false)
+                        Text(currentSortLabel, color = DesktopColors.TextGray, fontSize = 13.sp, maxLines = 1, softWrap = false)
                         Spacer(Modifier.width(6.dp))
                     }
                 }
@@ -159,9 +160,9 @@ internal fun LibrarySortViewMenu(
         }
         LibraryPopupMenu(expanded, { expanded = false }, anchorWidth, SortMenuWidth) {
             MenuHeader("排序方式")
-            LibrarySortOrder.entries.forEach { order ->
-                SortOption(order, selected = order == sortOrder) {
-                    onSortOrderChange(order)
+            sortOptions.forEachIndexed { index, (label, selected) ->
+                MenuOption(label, selected = selected) {
+                    onSelectSortIndex(index)
                     expanded = false
                 }
             }
@@ -191,10 +192,6 @@ internal fun MenuHeader(text: String, trailing: String? = null) {
         }
     }
 }
-
-@Composable
-private fun SortOption(order: LibrarySortOrder, selected: Boolean, onClick: () -> Unit) =
-    MenuOption(sortLabel(order), selected, onClick)
 
 @Composable
 internal fun MenuOption(label: String, selected: Boolean, onClick: () -> Unit) {
@@ -230,9 +227,15 @@ private fun ViewModeOption(mode: LibraryViewMode, selected: Boolean, modifier: M
     }
 }
 
-// 创建入口：“创建歌单”建云端歌单（需登录），“添加歌单”建本地歌单；创建成功后跳转新歌单页
+// 创建入口：“创建歌单”建云端歌单（需登录），“添加歌单”建本地歌单；纯本地模式下直接新建本地歌单
 @Composable
-internal fun LibraryCreateButton(viewModel: LibraryViewModel, extras: LibraryExtrasEntry, isLoggedIn: Boolean, pill: Boolean) {
+internal fun LibraryCreateButton(
+    viewModel: LibraryViewModel,
+    extras: LibraryExtrasEntry,
+    isLoggedIn: Boolean,
+    pill: Boolean,
+    localViewModel: LocalLibraryDesktopViewModel? = null
+) {
     val navigator = LocalDesktopNavigator.current
     val scope = rememberCoroutineScope()
     var menuOpen by remember { mutableStateOf(false) }
@@ -246,11 +249,18 @@ internal fun LibraryCreateButton(viewModel: LibraryViewModel, extras: LibraryExt
             if (navigator.isKugouEnabled && navigator.isKugouLoggedIn) add(MusicPlatform.KUGOU)
         }
     }
+    val onTriggerClick = {
+        if (localViewModel != null) {
+            localDialogOpen = true
+        } else {
+            menuOpen = true
+        }
+    }
     Box(Modifier.onSizeChanged { anchorWidth = with(density) { it.width.toDp() } }) {
         if (pill) {
             Row(
                 Modifier.clip(RoundedCornerShape(20.dp)).background(DesktopColors.Surface)
-                    .pointerHoverIcon(PointerIcon.Hand).clickable { menuOpen = true }
+                    .pointerHoverIcon(PointerIcon.Hand).clickable(onClick = onTriggerClick)
                     .padding(horizontal = 14.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -264,29 +274,31 @@ internal fun LibraryCreateButton(viewModel: LibraryViewModel, extras: LibraryExt
                 )
             }
         } else {
-            LibraryIconButton(MelodiaIcons.Plus, "创建", filled = true) { menuOpen = true }
+            LibraryIconButton(MelodiaIcons.Plus, if (localViewModel != null) "新建本地歌单" else "创建", filled = true, onClick = onTriggerClick)
         }
-        LibraryPopupMenu(menuOpen, { menuOpen = false }, anchorWidth, CreateMenuWidth) {
-            if (availablePlatforms.isNotEmpty()) {
+        if (localViewModel == null) {
+            LibraryPopupMenu(menuOpen, { menuOpen = false }, anchorWidth, CreateMenuWidth) {
+                if (availablePlatforms.isNotEmpty()) {
+                    SimpleMenuItem(
+                        text = "创建歌单",
+                        icon = MelodiaIcons.PlaylistAdd,
+                        modifier = Modifier.padding(horizontal = 4.dp),
+                        onClick = {
+                            menuOpen = false
+                            dialogOpen = true
+                        }
+                    )
+                }
                 SimpleMenuItem(
-                    text = "创建歌单",
-                    icon = MelodiaIcons.PlaylistAdd,
+                    text = "添加歌单",
+                    icon = MelodiaIcons.LibraryAdd,
                     modifier = Modifier.padding(horizontal = 4.dp),
                     onClick = {
                         menuOpen = false
-                        dialogOpen = true
+                        localDialogOpen = true
                     }
                 )
             }
-            SimpleMenuItem(
-                text = "添加歌单",
-                icon = MelodiaIcons.LibraryAdd,
-                modifier = Modifier.padding(horizontal = 4.dp),
-                onClick = {
-                    menuOpen = false
-                    localDialogOpen = true
-                }
-            )
         }
     }
     if (localDialogOpen) {
@@ -294,9 +306,15 @@ internal fun LibraryCreateButton(viewModel: LibraryViewModel, extras: LibraryExt
             onDismiss = { localDialogOpen = false },
             onCreate = { name, folder ->
                 localDialogOpen = false
-                scope.launch {
-                    val id = extras.local.repository.createPlaylist(name, folder)
-                    extras.onOpenLocal(id, name.ifBlank { folder?.name.orEmpty() })
+                if (localViewModel != null) {
+                    localViewModel.createPlaylist(name, folder) { id ->
+                        extras.onOpenLocal(id, name.ifBlank { folder?.name.orEmpty() })
+                    }
+                } else {
+                    scope.launch {
+                        val id = extras.local.repository.createPlaylist(name, folder)
+                        extras.onOpenLocal(id, name.ifBlank { folder?.name.orEmpty() })
+                    }
                 }
             }
         )

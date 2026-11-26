@@ -1,8 +1,13 @@
 package com.lin0721.linmusic.desktop.ui.library
 
+import com.lin0721.linmusic.core.localmusic.domain.LocalTrack
+import com.lin0721.linmusic.core.localmusic.domain.LocalTrackSource
+import com.lin0721.linmusic.core.localmusic.domain.buildLocalLibraryIndex
 import com.lin0721.linmusic.desktop.data.local.LOCAL_ALL_TRACKS_ID
 import com.lin0721.linmusic.desktop.data.local.LOCAL_DOWNLOADS_ID
 import com.lin0721.linmusic.desktop.data.local.LocalPlaylistSummary
+import com.lin0721.linmusic.desktop.ui.local.LocalLibraryFilter
+import com.lin0721.linmusic.desktop.ui.local.LocalLibrarySortOrder
 import com.lin0721.linmusic.feature.library.ui.LibraryFilter
 import com.lin0721.linmusic.feature.library.ui.LibraryItem
 import com.lin0721.linmusic.feature.library.ui.LibraryItemType
@@ -58,5 +63,136 @@ class LocalLibraryItemsTest {
     fun queryFiltersLocalTitles() {
         val items = mergeLibraryItems(emptyList(), summaries, null, true, "本地A", LibrarySortOrder.CUSTOM)
         assertEquals(listOf("local:200"), items.map { it.id })
+    }
+
+    private fun track(
+        id: Long,
+        title: String,
+        artist: String,
+        album: String,
+        folder: String,
+        addedMs: Long,
+        source: LocalTrackSource = LocalTrackSource.EXTERNAL,
+        hasCover: Boolean = false
+    ) = LocalTrack(
+        location = "$folder/$title.mp3",
+        mediaStoreId = id,
+        songId = null,
+        title = title,
+        artist = artist,
+        album = album,
+        durationMs = 180_000L,
+        sizeBytes = 1024L,
+        path = "$folder/$title.mp3",
+        dateAddedMs = addedMs,
+        dateModifiedMs = addedMs,
+        source = source,
+        hasEmbeddedCover = hasCover,
+        folder = folder
+    )
+
+    private val localTracks = listOf(
+        track(1, "晴天", "周杰伦", "叶惠美", "/music/jay", addedMs = 100L, hasCover = true),
+        track(2, "夜曲", "周杰伦", "十一月的萧邦", "/music/jay", addedMs = 300L, source = LocalTrackSource.DOWNLOAD, hasCover = true),
+        track(3, "十年", "陈奕迅", "黑白灰", "/music/eason", addedMs = 200L)
+    )
+
+    private val localIndex = buildLocalLibraryIndex(localTracks)
+
+    private fun coverOf(track: LocalTrack): String? =
+        if (track.hasEmbeddedCover) "file:///${track.location}.jpg" else null
+
+    @Test
+    fun localModeKeepsFixedPinnedTopTwoRegardlessOfFilter() {
+        LocalLibraryFilter.entries.forEach { filter ->
+            val items = buildLocalModeLibraryItems(
+                summaries = summaries,
+                index = localIndex,
+                downloadTrackCount = 1,
+                downloadCoverUri = "file:///dl.jpg",
+                coverForTrack = ::coverOf,
+                filter = filter,
+                query = "",
+                sort = LocalLibrarySortOrder.CUSTOM
+            )
+            assertEquals("全部歌曲", items[0].title)
+            assertEquals("local:$LOCAL_ALL_TRACKS_ID", items[0].id)
+            assertTrue(items[0].isPinned)
+            assertEquals("已下载", items[1].title)
+            assertEquals("local:$LOCAL_DOWNLOADS_ID", items[1].id)
+            assertTrue(items[1].isPinned)
+        }
+    }
+
+    @Test
+    fun localModeFiltersByCategory() {
+        val albums = buildLocalModeLibraryItems(
+            summaries, localIndex, 1, null, ::coverOf,
+            LocalLibraryFilter.ALBUM, "", LocalLibrarySortOrder.NAME
+        )
+        assertEquals(
+            listOf("local:$LOCAL_ALL_TRACKS_ID", "local:$LOCAL_DOWNLOADS_ID", "local_album:黑白灰|陈奕迅", "local_album:十一月的萧邦|周杰伦", "local_album:叶惠美|周杰伦"),
+            albums.map { it.id }
+        )
+
+        val artists = buildLocalModeLibraryItems(
+            summaries, localIndex, 1, null, ::coverOf,
+            LocalLibraryFilter.ARTIST, "", LocalLibrarySortOrder.NAME
+        )
+        assertEquals(
+            listOf("local:$LOCAL_ALL_TRACKS_ID", "local:$LOCAL_DOWNLOADS_ID", "local_artist:陈奕迅", "local_artist:周杰伦"),
+            artists.map { it.id }
+        )
+        assertTrue(artists.drop(2).all { it.type == LibraryItemType.ARTIST })
+
+        val folders = buildLocalModeLibraryItems(
+            summaries, localIndex, 1, null, ::coverOf,
+            LocalLibraryFilter.FOLDER, "", LocalLibrarySortOrder.NAME
+        )
+        assertEquals(
+            listOf("local:$LOCAL_ALL_TRACKS_ID", "local:$LOCAL_DOWNLOADS_ID", "local_folder:/music/eason", "local_folder:/music/jay"),
+            folders.map { it.id }
+        )
+    }
+
+    @Test
+    fun localModeSortsByRecentlyAddedAndSearchFilters() {
+        val recent = buildLocalModeLibraryItems(
+            summaries, localIndex, 1, null, ::coverOf,
+            LocalLibraryFilter.ALBUM, "", LocalLibrarySortOrder.RECENTLY_ADDED
+        )
+        assertEquals(
+            listOf("十一月的萧邦", "黑白灰", "叶惠美"),
+            recent.drop(2).map { it.title }
+        )
+
+        val searched = buildLocalModeLibraryItems(
+            summaries, localIndex, 1, null, ::coverOf,
+            null, "周杰伦", LocalLibrarySortOrder.NAME
+        )
+        assertEquals(listOf("local_artist:周杰伦"), searched.map { it.id })
+    }
+
+    @Test
+    fun localModePinnedUserPlaylistStaysBelowFixedTopTwo() {
+        val items = buildLocalModeLibraryItems(
+            summaries, localIndex, 1, null, ::coverOf,
+            LocalLibraryFilter.PLAYLIST, "", LocalLibrarySortOrder.CUSTOM
+        )
+        assertEquals(
+            listOf("local:$LOCAL_ALL_TRACKS_ID", "local:$LOCAL_DOWNLOADS_ID", "local:200", "local:100"),
+            items.map { it.id }
+        )
+    }
+
+    @Test
+    fun tracksForLocalCollectionResolvesAlbumArtistAndFolder() {
+        val albumItem = LibraryItem("local_album:叶惠美|周杰伦", "叶惠美", "", "", LibraryItemType.ALBUM)
+        val artistItem = LibraryItem("local_artist:周杰伦", "周杰伦", "", "", LibraryItemType.ARTIST)
+        val folderItem = LibraryItem("local_folder:/music/eason", "eason", "", "", LibraryItemType.PLAYLIST)
+
+        assertEquals(listOf("晴天"), tracksForLocalCollection(albumItem, localIndex).map { it.title })
+        assertEquals(listOf("夜曲", "晴天"), tracksForLocalCollection(artistItem, localIndex).map { it.title })
+        assertEquals(listOf("十年"), tracksForLocalCollection(folderItem, localIndex).map { it.title })
     }
 }

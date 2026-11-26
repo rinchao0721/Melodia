@@ -23,9 +23,6 @@ import androidx.compose.runtime.remember
 import com.lin0721.linmusic.core.source.MusicPlatform
 import com.lin0721.linmusic.core.auth.UserPreferences
 import com.lin0721.linmusic.desktop.ui.local.LocalLibraryDesktopViewModel
-import com.lin0721.linmusic.desktop.ui.local.LocalLibrarySidebar
-import com.lin0721.linmusic.desktop.ui.navigation.DesktopRoute
-import com.lin0721.linmusic.desktop.ui.shell.LocalDesktopNavigator
 import org.koin.java.KoinJavaComponent.getKoin
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -66,6 +63,13 @@ fun LibraryPane(
 ) {
     val motion = LocalUiMotion.current
     val scrollAnchor = remember { LibraryScrollAnchor() }
+    val userPrefs = remember { getKoin().get<UserPreferences>() }
+    val currentPlatform by userPrefs.currentPlatform.collectAsState(initial = MusicPlatform.NETEASE)
+    val localVm = if (currentPlatform == MusicPlatform.LOCAL) {
+        remember { getKoin().get<LocalLibraryDesktopViewModel>() }
+    } else {
+        null
+    }
     Box(
         Modifier.width(width).fillMaxHeight()
             .clip(RoundedCornerShape(DesktopDimens.PaneRadius))
@@ -97,30 +101,19 @@ fun LibraryPane(
                     Box(Modifier.fixedWidthAtStart(contentWidth)) {
                         when (current) {
                             LibraryMode.RAIL -> LibraryRail(
-                                viewModel, isLoggedIn, onItemClick, onModeChange, extras, shortcutsState
+                                viewModel, isLoggedIn, onItemClick, onModeChange, extras, shortcutsState,
+                                localViewModel = localVm
                             )
-                            LibraryMode.DEFAULT -> {
-                                val userPrefs = remember { getKoin().get<UserPreferences>() }
-                                val currentPlatform by userPrefs.currentPlatform.collectAsState(initial = MusicPlatform.NETEASE)
-                                if (currentPlatform == MusicPlatform.LOCAL) {
-                                    val localVm = remember { getKoin().get<LocalLibraryDesktopViewModel>() }
-                                    val navigator = LocalDesktopNavigator.current
-                                    LocalLibrarySidebar(
-                                        viewModel = localVm,
-                                        onSelectNav = { navigator.openHome() },
-                                        onOpenPlaylist = { id, title -> navigator.openLocalPlaylist(id, title) },
-                                        footer = footer
-                                    )
-                                } else {
-                                    LibrarySidebar(
-                                        viewModel, isLoggedIn, onLoginClick, onItemClick, onModeChange, viewMode, onViewModeChange,
-                                        onFilterToggle, onSortOrderChange, extras, shortcutsState, footer = footer
-                                    )
-                                }
-                            }
+                            LibraryMode.DEFAULT -> LibrarySidebar(
+                                viewModel, isLoggedIn, onLoginClick, onItemClick, onModeChange, viewMode, onViewModeChange,
+                                onFilterToggle, onSortOrderChange, extras, shortcutsState,
+                                localViewModel = localVm,
+                                footer = footer
+                            )
                             LibraryMode.EXPANDED -> LibraryExpanded(
                                 viewModel, isLoggedIn, onLoginClick, onItemClick, onModeChange, viewMode, onViewModeChange,
-                                onFilterToggle, onSortOrderChange, extras, shortcutsState
+                                onFilterToggle, onSortOrderChange, extras, shortcutsState,
+                                localViewModel = localVm
                             )
                         }
                     }
