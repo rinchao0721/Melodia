@@ -21,9 +21,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Text
+import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -269,7 +269,7 @@ private fun ControlBar(isPlaying: Boolean, actions: FloatingLyricActions, touche
 
 @Composable
 private fun BarButton(icon: ImageVector, description: String, onClick: () -> Unit) {
-    IconButton(onClick = onClick, modifier = Modifier.size(40.dp)) {
+    MelodiaIconButton(onClick = onClick, modifier = Modifier.size(40.dp)) {
         Icon(icon, description, tint = Color.White, modifier = Modifier.size(22.dp))
     }
 }

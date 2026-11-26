@@ -196,9 +196,12 @@ fun SkinSettingSection(settings: ThemeSettings, repository: SkinRepository) {
             title = { Text("无法导入皮肤", fontSize = 18.sp, fontWeight = FontWeight.Bold) },
             text = { Text(step.message, color = MaterialTheme.colorScheme.onSurfaceVariant) },
             confirmButton = {
-                MelodiaTextButton(onClick = controller::dismissFailure) { Text("知道了", color = MelodiaColors.AccentText) }
+                MelodiaTextButton(onClick = controller::dismissFailure) {
+                    Text("知道了", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                }
             },
-            containerColor = MaterialTheme.colorScheme.background
+            containerColor = MaterialTheme.colorScheme.surface,
+            shape = MaterialTheme.shapes.medium
         )
         else -> Unit
     }
@@ -213,12 +216,13 @@ fun SkinSettingSection(settings: ThemeSettings, repository: SkinRepository) {
                 MelodiaTextButton(onClick = {
                     deleteTarget = null
                     controller.delete(skin.id)
-                }) { Text("删除", color = MelodiaColors.Error) }
+                }) { Text("删除", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold) }
             },
             dismissButton = {
-                MelodiaTextButton(onClick = { deleteTarget = null }) { Text("取消", color = MelodiaColors.TextPrimary) }
+                MelodiaTextButton(onClick = { deleteTarget = null }) { Text("取消", color = MaterialTheme.colorScheme.onSurface) }
             },
-            containerColor = MaterialTheme.colorScheme.background
+            containerColor = MaterialTheme.colorScheme.surface,
+            shape = MaterialTheme.shapes.medium
         )
     }
 }

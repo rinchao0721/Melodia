@@ -15,7 +15,6 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -25,6 +24,7 @@ import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.LocalBottomOverlayInset
 import com.lin0721.linmusic.core.ui.components.EmptyState
 import com.lin0721.linmusic.core.ui.components.MelodiaButton
+import com.lin0721.linmusic.core.ui.components.MelodiaTextButton
 import com.lin0721.linmusic.core.ui.theme.LocalMelodiaWindowSizeClass
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaWindowSizeClass
@@ -297,7 +297,7 @@ internal fun SectionError(message: String, onRetry: () -> Unit) {
             fontSize = 12.sp,
             textAlign = TextAlign.Center
         )
-        TextButton(onClick = onRetry) { Text("重试") }
+        MelodiaTextButton(onClick = onRetry) { Text("重试") }
     }
 }
 

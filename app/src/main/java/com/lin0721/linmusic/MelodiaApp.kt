@@ -34,6 +34,7 @@ import androidx.activity.ComponentActivity
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -1632,17 +1633,18 @@ private fun FfmpegInstallPromptDialog(
                 }
                 Text(
                     text = actionText,
-                    color = if (isDownloading) MelodiaColors.TextTertiary else MelodiaColors.AccentText,
+                    color = if (isDownloading) MelodiaColors.TextTertiary else MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.Bold
                 )
             }
         },
         dismissButton = {
             MelodiaTextButton(onClick = onCancel) {
-                Text("取消", color = MelodiaColors.TextPrimary)
+                Text("取消", color = MaterialTheme.colorScheme.onSurface)
             }
         },
-        containerColor = MelodiaColors.Surface
+        containerColor = MaterialTheme.colorScheme.surface,
+        shape = MaterialTheme.shapes.medium
     )
 }
 

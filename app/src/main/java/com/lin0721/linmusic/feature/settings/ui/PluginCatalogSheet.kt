@@ -11,8 +11,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -41,6 +41,7 @@ import com.lin0721.linmusic.core.plugin.pluginUpdates
 import com.lin0721.linmusic.core.ui.components.MelodiaOutlinedButton
 import com.lin0721.linmusic.core.ui.components.MelodiaDragHandle
 import com.lin0721.linmusic.core.ui.components.MelodiaTextButton
+import com.lin0721.linmusic.core.ui.components.PlaceholderTextField
 import com.lin0721.linmusic.core.ui.theme.BottomSheetShape
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
@@ -77,12 +78,12 @@ internal fun PluginCatalogSheet(controller: PluginSettingsController, onDismiss:
                 .padding(bottom = MelodiaSpacing.md)
         ) {
             Text("插件目录", color = MelodiaColors.TextPrimary, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-            OutlinedTextField(
+            PlaceholderTextField(
                 value = query,
                 onValueChange = { query = it },
-                placeholder = { Text("搜索插件") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth().padding(top = 12.dp)
+                placeholder = "搜索插件",
+                borderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f),
+                modifier = Modifier.padding(top = 12.dp)
             )
             if (!catalog.isDefault) {
                 Text(
@@ -96,12 +97,12 @@ internal fun PluginCatalogSheet(controller: PluginSettingsController, onDismiss:
                 Text(it, color = MelodiaColors.Error, fontSize = 12.sp, modifier = Modifier.padding(top = 8.dp))
             }
             if (editingUrl) {
-                OutlinedTextField(
+                PlaceholderTextField(
                     value = urlText,
                     onValueChange = { urlText = it.filterNot(Char::isWhitespace) },
-                    label = { Text("目录地址") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth().padding(top = 12.dp)
+                    placeholder = "目录地址",
+                    borderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f),
+                    modifier = Modifier.padding(top = 12.dp)
                 )
                 Row(modifier = Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     MelodiaOutlinedButton(onClick = {

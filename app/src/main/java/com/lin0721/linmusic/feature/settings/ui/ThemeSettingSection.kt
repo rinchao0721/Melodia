@@ -27,7 +27,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -58,6 +57,7 @@ import com.lin0721.linmusic.core.preferences.ThemeSettings
 import com.lin0721.linmusic.core.ui.components.MelodiaButton
 import com.lin0721.linmusic.core.ui.components.MelodiaDragHandle
 import com.lin0721.linmusic.core.ui.components.MelodiaTextButton
+import com.lin0721.linmusic.core.ui.components.PlaceholderTextField
 import com.lin0721.linmusic.core.ui.theme.BottomSheetShape
 import com.lin0721.linmusic.core.ui.theme.ColorPickerState
 import com.lin0721.linmusic.core.ui.theme.MIN_ACCENT_CONTRAST
@@ -386,13 +386,15 @@ private fun CustomAccentSheet(isDark: Boolean, initial: Color, onDismiss: () -> 
                 ) {
                     Box(Modifier.fillMaxSize().clip(CircleShape).background(if (state.isHexValid) state.color else Color.Transparent))
                 }
-                OutlinedTextField(
+                PlaceholderTextField(
                     value = state.hexText,
                     onValueChange = state::updateHexText,
-                    label = { Text("十六进制") },
-                    placeholder = { Text("#RRGGBB") },
-                    isError = !state.isHexValid,
-                    singleLine = true,
+                    placeholder = "#RRGGBB",
+                    borderColor = if (!state.isHexValid) {
+                        MaterialTheme.colorScheme.error
+                    } else {
+                        MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)
+                    },
                     keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
                     modifier = Modifier.weight(1f).padding(start = 16.dp)
                 )

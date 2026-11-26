@@ -983,15 +983,17 @@ fun PlaylistScreen(
                         onClick = {
                             showBatchRemoveConfirm = false
                             viewModel.batchRemove()
-                        }
-                    ) { Text("删除", color = MaterialTheme.colorScheme.error) }
+                        },
+                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                    ) { Text("删除", fontWeight = FontWeight.Bold) }
                 },
                 dismissButton = {
                     MelodiaTextButton(onClick = { showBatchRemoveConfirm = false }) {
-                        Text("取消", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("取消", color = MaterialTheme.colorScheme.onSurface)
                     }
                 },
-                containerColor = MaterialTheme.colorScheme.surfaceVariant
+                containerColor = MaterialTheme.colorScheme.surface,
+                shape = MaterialTheme.shapes.medium
             )
         }
 

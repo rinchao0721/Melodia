@@ -2,6 +2,7 @@ package com.lin0721.linmusic.feature.player.ui
 
 import com.lin0721.linmusic.core.ui.theme.melodiaNumberStyle
 
+import com.lin0721.linmusic.core.ui.components.MelodiaSwitch
 import com.lin0721.linmusic.core.ui.components.PlayPauseIcon
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.SizeTransform
@@ -39,7 +40,6 @@ import androidx.compose.material3.SecondaryTabRow
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Tab
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
@@ -348,7 +348,7 @@ private fun LyricCompactSwitchRow(
                 )
             }
         }
-        Switch(
+        MelodiaSwitch(
             checked = checked,
             onCheckedChange = onCheckedChange,
             modifier = Modifier.graphicsLayer(scaleX = 0.85f, scaleY = 0.85f),

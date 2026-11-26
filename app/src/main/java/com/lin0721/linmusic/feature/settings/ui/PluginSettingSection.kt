@@ -27,7 +27,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
@@ -64,6 +63,7 @@ import com.lin0721.linmusic.core.plugin.rememberPluginSettingsController
 import com.lin0721.linmusic.core.ui.components.MelodiaButton
 import com.lin0721.linmusic.core.ui.components.MelodiaDragHandle
 import com.lin0721.linmusic.core.ui.components.MelodiaOutlinedButton
+import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
 import com.lin0721.linmusic.core.ui.components.MelodiaSwitch
 import com.lin0721.linmusic.core.ui.components.MelodiaTextButton
 import com.lin0721.linmusic.core.ui.theme.BottomSheetShape
@@ -202,9 +202,13 @@ fun PluginSettingSection(repository: PluginRepository) {
             title = { Text("无法导入插件", fontSize = 18.sp, fontWeight = FontWeight.Bold) },
             text = { Text(step.message, color = MaterialTheme.colorScheme.onSurfaceVariant) },
             confirmButton = {
-                MelodiaTextButton(onClick = controller::dismissFailure) { Text("知道了", color = MelodiaColors.AccentText) }
+                MelodiaTextButton(
+                    onClick = controller::dismissFailure,
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.primary)
+                ) { Text("知道了", fontWeight = FontWeight.Bold) }
             },
-            containerColor = MaterialTheme.colorScheme.background
+            containerColor = MaterialTheme.colorScheme.surface,
+            shape = MaterialTheme.shapes.medium
         )
         else -> Unit
     }
@@ -237,15 +241,19 @@ fun PluginSettingSection(repository: PluginRepository) {
                 )
             },
             confirmButton = {
-                MelodiaTextButton(onClick = {
-                    rollbackTarget = null
-                    controller.rollback(plugin)
-                }) { Text("回退", color = MelodiaColors.AccentText) }
+                MelodiaTextButton(
+                    onClick = {
+                        rollbackTarget = null
+                        controller.rollback(plugin)
+                    },
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.primary)
+                ) { Text("回退", fontWeight = FontWeight.Bold) }
             },
             dismissButton = {
-                MelodiaTextButton(onClick = { rollbackTarget = null }) { Text("取消", color = MelodiaColors.TextPrimary) }
+                MelodiaTextButton(onClick = { rollbackTarget = null }) { Text("取消", color = MaterialTheme.colorScheme.onSurface) }
             },
-            containerColor = MaterialTheme.colorScheme.background
+            containerColor = MaterialTheme.colorScheme.surface,
+            shape = MaterialTheme.shapes.medium
         )
     }
 
@@ -257,15 +265,19 @@ fun PluginSettingSection(repository: PluginRepository) {
                 Text("确定删除「${plugin.name}」吗？插件保存的数据也会一并删除。", color = MaterialTheme.colorScheme.onSurfaceVariant)
             },
             confirmButton = {
-                MelodiaTextButton(onClick = {
-                    deleteTarget = null
-                    controller.delete(plugin.id)
-                }) { Text("删除", color = MelodiaColors.Error) }
+                MelodiaTextButton(
+                    onClick = {
+                        deleteTarget = null
+                        controller.delete(plugin.id)
+                    },
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                ) { Text("删除", fontWeight = FontWeight.Bold) }
             },
             dismissButton = {
-                MelodiaTextButton(onClick = { deleteTarget = null }) { Text("取消", color = MelodiaColors.TextPrimary) }
+                MelodiaTextButton(onClick = { deleteTarget = null }) { Text("取消", color = MaterialTheme.colorScheme.onSurface) }
             },
-            containerColor = MaterialTheme.colorScheme.background
+            containerColor = MaterialTheme.colorScheme.surface,
+            shape = MaterialTheme.shapes.medium
         )
     }
 }
@@ -316,21 +328,21 @@ private fun PluginRow(
                 }
             }
             if (plugin.previousVersion != null) {
-                IconButton(onClick = onRollback, modifier = Modifier.size(36.dp)) {
+                MelodiaIconButton(onClick = onRollback, modifier = Modifier.size(36.dp)) {
                     Icon(MelodiaIcons.Restore, contentDescription = "回退到上一版本", tint = MelodiaColors.TextSecondary, modifier = Modifier.size(20.dp))
                 }
             }
             if (hasSettings) {
-                IconButton(onClick = onSettings, modifier = Modifier.size(36.dp)) {
+                MelodiaIconButton(onClick = onSettings, modifier = Modifier.size(36.dp)) {
                     Icon(MelodiaIcons.Settings, contentDescription = "插件设置", tint = MelodiaColors.TextSecondary, modifier = Modifier.size(20.dp))
                 }
             }
             if (manifest != null) {
-                IconButton(onClick = onExport, modifier = Modifier.size(36.dp)) {
+                MelodiaIconButton(onClick = onExport, modifier = Modifier.size(36.dp)) {
                     Icon(MelodiaIcons.Upload, contentDescription = "导出插件", tint = MelodiaColors.TextSecondary, modifier = Modifier.size(20.dp))
                 }
             }
-            IconButton(onClick = onDelete, modifier = Modifier.size(36.dp)) {
+            MelodiaIconButton(onClick = onDelete, modifier = Modifier.size(36.dp)) {
                 Icon(MelodiaIcons.Delete, contentDescription = "删除插件", tint = MelodiaColors.TextSecondary, modifier = Modifier.size(20.dp))
             }
             MelodiaSwitch(

@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -60,20 +61,21 @@ fun UpdateDialog(
                         }
                 }
             ) {
-                Text("前往下载", color = MelodiaColors.AccentText, fontWeight = FontWeight.Bold)
+                Text("前往下载", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
             }
         },
         dismissButton = {
             Row {
                 MelodiaTextButton(onClick = onIgnore) {
-                    Text("忽略此版本", color = MelodiaColors.TextSecondary)
+                    Text("忽略此版本", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Spacer(modifier = Modifier.width(4.dp))
                 MelodiaTextButton(onClick = onDismiss) {
-                    Text("稍后", color = MelodiaColors.TextPrimary)
+                    Text("稍后", color = MaterialTheme.colorScheme.onSurface)
                 }
             }
         },
-        containerColor = MelodiaColors.Surface
+        containerColor = MaterialTheme.colorScheme.surface,
+        shape = MaterialTheme.shapes.medium
     )
 }

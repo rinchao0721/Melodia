@@ -428,7 +428,7 @@ private fun ClearConfirmDialog(
         text = { Text(message, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp) },
         confirmButton = {
             MelodiaTextButton(onClick = onConfirm) {
-                Text("清空", color = MelodiaColors.AccentText, fontWeight = FontWeight.Bold)
+                Text("清空", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
             }
         },
         dismissButton = {
@@ -436,6 +436,7 @@ private fun ClearConfirmDialog(
                 Text("取消", color = MaterialTheme.colorScheme.onSurface)
             }
         },
-        containerColor = MaterialTheme.colorScheme.background
+        containerColor = MaterialTheme.colorScheme.surface,
+        shape = MaterialTheme.shapes.medium
     )
 }

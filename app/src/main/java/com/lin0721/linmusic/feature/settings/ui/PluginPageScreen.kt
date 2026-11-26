@@ -17,11 +17,12 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
@@ -59,6 +60,7 @@ import com.lin0721.linmusic.core.plugin.PluginPageView
 import com.lin0721.linmusic.core.plugin.PluginTrack
 import com.lin0721.linmusic.core.plugin.layoutShape
 import com.lin0721.linmusic.core.plugin.snapToStep
+import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
 import com.lin0721.linmusic.core.ui.components.MelodiaOutlinedButton
 import com.lin0721.linmusic.core.ui.components.MelodiaSwitch
 import com.lin0721.linmusic.core.ui.components.MelodiaTextButton
@@ -81,7 +83,7 @@ fun PluginPageDialog(active: ActivePluginPage, host: PluginPageHost, onDismiss: 
         Surface(color = MelodiaColors.Background, modifier = Modifier.fillMaxSize()) {
             Column(modifier = Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 4.dp)) {
-                    IconButton(onClick = onDismiss) {
+                    MelodiaIconButton(onClick = onDismiss) {
                         Icon(MelodiaIcons.ArrowBack, contentDescription = "返回", tint = MelodiaColors.TextPrimary)
                     }
                     Text(active.page.title, color = MelodiaColors.TextPrimary, fontSize = 18.sp, fontWeight = FontWeight.Bold)
@@ -113,12 +115,20 @@ fun PluginConfirmDialog(confirmations: PluginConfirmations) {
         title = { Text(pending.title, fontSize = 18.sp, fontWeight = FontWeight.Bold) },
         text = { Text(pending.message, color = MelodiaColors.TextSecondary) },
         confirmButton = {
-            MelodiaTextButton(onClick = { confirmations.respond(true) }) { Text("允许", color = MelodiaColors.AccentText) }
+            MelodiaTextButton(
+                onClick = { confirmations.respond(true) },
+                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.primary)
+            ) {
+                Text("允许", fontWeight = FontWeight.Bold)
+            }
         },
         dismissButton = {
-            MelodiaTextButton(onClick = { confirmations.respond(false) }) { Text("拒绝", color = MelodiaColors.TextPrimary) }
+            MelodiaTextButton(onClick = { confirmations.respond(false) }) {
+                Text("拒绝", color = MaterialTheme.colorScheme.onSurface)
+            }
         },
-        containerColor = MelodiaColors.Background
+        containerColor = MaterialTheme.colorScheme.surface,
+        shape = MaterialTheme.shapes.medium
     )
 }
 
@@ -132,7 +142,7 @@ fun PluginSettingsDialog(manifest: PluginManifest, page: ActivePluginPage?, host
         Surface(color = MelodiaColors.Background, modifier = Modifier.fillMaxSize()) {
             Column(modifier = Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 4.dp)) {
-                    IconButton(onClick = onDismiss) {
+                    MelodiaIconButton(onClick = onDismiss) {
                         Icon(MelodiaIcons.ArrowBack, contentDescription = "返回", tint = MelodiaColors.TextPrimary)
                     }
                     Text("${manifest.name} 设置", color = MelodiaColors.TextPrimary, fontSize = 18.sp, fontWeight = FontWeight.Bold)

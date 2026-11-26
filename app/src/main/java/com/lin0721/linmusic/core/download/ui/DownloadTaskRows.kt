@@ -10,7 +10,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -35,6 +34,7 @@ import com.lin0721.linmusic.core.download.DownloadTask
 import com.lin0721.linmusic.core.download.DownloadTaskStatus
 import com.lin0721.linmusic.core.model.getQualityDisplayName
 import com.lin0721.linmusic.core.ui.components.CoverPlaceholder
+import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
@@ -90,15 +90,15 @@ internal fun TaskRow(task: DownloadTask, queuePosition: Int?, actions: TaskActio
                         fontSize = 12.sp
                     )
                     if (task.status == DownloadTaskStatus.PAUSED) {
-                        IconButton(onClick = { actions.onResume(listOf(task)) }) {
+                        MelodiaIconButton(onClick = { actions.onResume(listOf(task)) }) {
                             Icon(MelodiaIcons.Play, contentDescription = "继续下载", tint = MelodiaColors.TextPrimary, modifier = Modifier.size(20.dp))
                         }
                     } else {
-                        IconButton(onClick = { actions.onPause(listOf(task)) }) {
+                        MelodiaIconButton(onClick = { actions.onPause(listOf(task)) }) {
                             Icon(MelodiaIcons.Pause, contentDescription = "暂停下载", tint = MelodiaColors.TextPrimary, modifier = Modifier.size(20.dp))
                         }
                     }
-                    IconButton(onClick = { actions.onCancel(listOf(task)) }, modifier = Modifier.size(36.dp)) {
+                    MelodiaIconButton(onClick = { actions.onCancel(listOf(task)) }, modifier = Modifier.size(36.dp)) {
                         Icon(MelodiaIcons.Close, contentDescription = "取消下载", tint = MutedText, modifier = Modifier.size(18.dp))
                     }
                 }

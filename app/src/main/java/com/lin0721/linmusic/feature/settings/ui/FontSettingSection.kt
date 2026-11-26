@@ -23,6 +23,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
@@ -312,10 +313,15 @@ fun FontSettingSection(
             title = { Text("部分字体导入失败") },
             text = { Text(message, fontSize = 13.sp) },
             confirmButton = {
-                MelodiaTextButton(onClick = { importErrorMessage = null }) {
-                    Text("确定")
+                MelodiaTextButton(
+                    onClick = { importErrorMessage = null },
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.primary)
+                ) {
+                    Text("确定", fontWeight = FontWeight.Bold)
                 }
-            }
+            },
+            containerColor = MaterialTheme.colorScheme.surface,
+            shape = MaterialTheme.shapes.medium
         )
     }
 }

@@ -258,18 +258,18 @@ fun PlayQueueSheet(
                         onClearQueue()
                         showClearConfirmDialog = false
                     },
-                    colors = ButtonDefaults.textButtonColors(contentColor = MelodiaColors.Accent)
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.primary)
                 ) {
                     Text("是的", fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
                 MelodiaTextButton(onClick = { showClearConfirmDialog = false }) {
-                    Text("取消", color = MelodiaColors.TextPrimary)
+                    Text("取消", color = MaterialTheme.colorScheme.onSurface)
                 }
             },
-            containerColor = MelodiaColors.Surface,
-            shape = RoundedCornerShape(10.dp)
+            containerColor = MaterialTheme.colorScheme.surface,
+            shape = MaterialTheme.shapes.medium
         )
     }
 

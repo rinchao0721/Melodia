@@ -172,18 +172,18 @@ fun CloudMatchSheet(
                 MelodiaTextButton(
                     onClick = onConfirm,
                     enabled = !overlay.isMatching,
-                    colors = ButtonDefaults.textButtonColors(contentColor = MelodiaColors.Accent)
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.primary)
                 ) {
                     Text(if (overlay.isMatching) "匹配中..." else "是的", fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
                 MelodiaTextButton(onClick = onCancelConfirm, enabled = !overlay.isMatching) {
-                    Text("取消", color = MelodiaColors.TextPrimary)
+                    Text("取消", color = MaterialTheme.colorScheme.onSurface)
                 }
             },
-            containerColor = MelodiaColors.Surface,
-            shape = RoundedCornerShape(10.dp)
+            containerColor = MaterialTheme.colorScheme.surface,
+            shape = MaterialTheme.shapes.medium
         )
     }
 }

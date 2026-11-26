@@ -28,8 +28,12 @@ import com.lin0721.linmusic.core.source.LxArchiveReader
 import com.lin0721.linmusic.core.source.LxPluginManager
 import com.lin0721.linmusic.core.source.SourcePreferences
 import com.lin0721.linmusic.core.source.UnmApiClient
+import com.lin0721.linmusic.core.ui.components.MelodiaButton
 import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
+import com.lin0721.linmusic.core.ui.components.MelodiaOutlinedButton
 import com.lin0721.linmusic.core.ui.components.MelodiaSwitch
+import com.lin0721.linmusic.core.ui.components.MelodiaTextButton
+import com.lin0721.linmusic.core.ui.components.PlaceholderTextField
 import com.lin0721.linmusic.core.ui.components.ToastManager
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
@@ -292,7 +296,7 @@ fun AudioSourcesSettingsView(viewModel: SettingsViewModel) {
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(MelodiaSpacing.sm)
                 ) {
-                    OutlinedButton(
+                    MelodiaOutlinedButton(
                         onClick = { filePickerLauncher.launch("*/*") },
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(PillRadius),
@@ -303,7 +307,7 @@ fun AudioSourcesSettingsView(viewModel: SettingsViewModel) {
                         Text("选取文件 (.js/.zip/.7z)", fontSize = 13.sp)
                     }
 
-                    OutlinedButton(
+                    MelodiaOutlinedButton(
                         onClick = { showImportDialog = true },
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(PillRadius),
@@ -460,16 +464,15 @@ private fun ServerUrlEditDialog(
                     fontSize = 12.sp,
                     modifier = Modifier.padding(bottom = MelodiaSpacing.sm)
                 )
-                OutlinedTextField(
+                PlaceholderTextField(
                     value = textValue,
                     onValueChange = {
                         // 复制来的地址常带换行，单行输入框只显示首行会像是空的
                         textValue = it.filterNot(Char::isWhitespace)
                         testResult = null
                     },
-                    placeholder = { Text("例如 https://your-unm-server.com", fontSize = 13.sp) },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
+                    placeholder = "例如 https://your-unm-server.com",
+                    borderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)
                 )
 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -479,7 +482,7 @@ private fun ServerUrlEditDialog(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    TextButton(
+                    MelodiaTextButton(
                         onClick = {
                             scope.launch {
                                 isTesting = true
@@ -509,28 +512,31 @@ private fun ServerUrlEditDialog(
             }
         },
         confirmButton = {
-            TextButton(
-                onClick = { onSave(textValue.trim()) }
+            MelodiaTextButton(
+                onClick = { onSave(textValue.trim()) },
+                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.primary)
             ) {
                 Text("保存", fontWeight = FontWeight.Bold)
             }
         },
         dismissButton = {
             Row {
-                TextButton(onClick = {
+                MelodiaTextButton(onClick = {
                     textValue = ""
                     testResult = null
                     onReset()
                 }) {
                     Icon(MelodiaIcons.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("清空")
+                    Text("清空", color = MaterialTheme.colorScheme.onSurface)
                 }
-                TextButton(onClick = onDismiss) {
-                    Text("取消")
+                MelodiaTextButton(onClick = onDismiss) {
+                    Text("取消", color = MaterialTheme.colorScheme.onSurface)
                 }
             }
-        }
+        },
+        containerColor = MaterialTheme.colorScheme.surface,
+        shape = MaterialTheme.shapes.medium
     )
 }
 
@@ -595,10 +601,10 @@ private fun LxScriptImportDialog(
             }
         },
         confirmButton = {
-            Button(
+            MelodiaButton(
                 onClick = {
                     val input = textValue.trim()
-                    if (input.isBlank()) return@Button
+                    if (input.isBlank()) return@MelodiaButton
                     isProcessing = true
                     val isRemote = input.startsWith("http://", ignoreCase = true) || input.startsWith("https://", ignoreCase = true)
                     statusText = if (isRemote) "正在从远端下载脚本..." else "正在校验沙盒环境..."
@@ -641,13 +647,15 @@ private fun LxScriptImportDialog(
             }
         },
         dismissButton = {
-            TextButton(
+            MelodiaTextButton(
                 onClick = onDismiss,
                 enabled = !isProcessing
             ) {
-                Text("取消")
+                Text("取消", color = MaterialTheme.colorScheme.onSurface)
             }
-        }
+        },
+        containerColor = MaterialTheme.colorScheme.surface,
+        shape = MaterialTheme.shapes.medium
     )
 }
 
@@ -696,13 +704,13 @@ private fun DuplicatePluginDialog(
         },
         confirmButton = {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(
+                MelodiaButton(
                     onClick = onOverwrite,
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                 ) {
                     Text("覆盖更新", fontSize = 12.sp)
                 }
-                OutlinedButton(
+                MelodiaOutlinedButton(
                     onClick = onKeepBoth
                 ) {
                     Text("保留为副本", fontSize = 12.sp)
@@ -710,10 +718,12 @@ private fun DuplicatePluginDialog(
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("取消")
+            MelodiaTextButton(onClick = onDismiss) {
+                Text("取消", color = MaterialTheme.colorScheme.onSurface)
             }
-        }
+        },
+        containerColor = MaterialTheme.colorScheme.surface,
+        shape = MaterialTheme.shapes.medium
     )
 }
 
@@ -769,7 +779,7 @@ private fun ScriptPickerDialog(
             }
         },
         confirmButton = {
-            Button(
+            MelodiaButton(
                 onClick = { onConfirm(scripts.filter { it.path in selected }) },
                 enabled = selected.isNotEmpty()
             ) {
@@ -777,9 +787,11 @@ private fun ScriptPickerDialog(
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("取消")
+            MelodiaTextButton(onClick = onDismiss) {
+                Text("取消", color = MaterialTheme.colorScheme.onSurface)
             }
-        }
+        },
+        containerColor = MaterialTheme.colorScheme.surface,
+        shape = MaterialTheme.shapes.medium
     )
 }

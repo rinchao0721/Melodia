@@ -269,18 +269,18 @@ fun DownloadManagerSheet(
                         actions.onRemove(tasks.filter { it.status == DownloadTaskStatus.FAILED })
                         showClearFailedDialog = false
                     },
-                    colors = ButtonDefaults.textButtonColors(contentColor = MelodiaColors.Error)
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
                 ) {
                     Text("清除", fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
                 MelodiaTextButton(onClick = { showClearFailedDialog = false }) {
-                    Text("取消", color = MelodiaColors.TextPrimary)
+                    Text("取消", color = MaterialTheme.colorScheme.onSurface)
                 }
             },
-            containerColor = MelodiaColors.Surface,
-            shape = RoundedCornerShape(12.dp)
+            containerColor = MaterialTheme.colorScheme.surface,
+            shape = MaterialTheme.shapes.medium
         )
     }
 }

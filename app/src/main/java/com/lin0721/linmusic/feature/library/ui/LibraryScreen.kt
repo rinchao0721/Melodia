@@ -33,6 +33,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
 import com.lin0721.linmusic.core.ui.components.MelodiaButton
+import com.lin0721.linmusic.core.ui.components.MelodiaTextButton
 import com.lin0721.linmusic.LocalBottomOverlayInset
 import com.lin0721.linmusic.LocalGlobalOverlayOpen
 import com.lin0721.linmusic.core.ui.components.LoginBottomSheet
@@ -619,20 +620,23 @@ fun LibraryScreen(
                 title = { Text("删除歌单", fontWeight = FontWeight.Bold) },
                 text = { Text("确定要删除歌单「${target.title}」吗？删除后不可恢复。") },
                 confirmButton = {
-                    TextButton(
+                    MelodiaTextButton(
                         onClick = {
                             viewModel.deleteLibraryPlaylist(target)
                             deletePlaylistTarget = null
-                        }
+                        },
+                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
                     ) {
-                        Text("删除", color = MaterialTheme.colorScheme.error)
+                        Text("删除", fontWeight = FontWeight.Bold)
                     }
                 },
                 dismissButton = {
-                    TextButton(onClick = { deletePlaylistTarget = null }) {
-                        Text("取消")
+                    MelodiaTextButton(onClick = { deletePlaylistTarget = null }) {
+                        Text("取消", color = MaterialTheme.colorScheme.onSurface)
                     }
-                }
+                },
+                containerColor = MaterialTheme.colorScheme.surface,
+                shape = MaterialTheme.shapes.medium
             )
         }
     }

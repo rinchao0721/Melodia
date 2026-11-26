@@ -10,7 +10,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Surface
@@ -315,17 +314,19 @@ fun NetworkSettingsView(viewModel: SettingsViewModel) {
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(Modifier.height(12.dp))
-                    OutlinedTextField(
+                    PlaceholderTextField(
                         value = pairingCode,
                         onValueChange = { input ->
                             pairingCode = input.filter(Char::isDigit).take(6)
                             pairingError = null
                         },
-                        label = { Text("6 位配对码") },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        isError = pairingError != null,
-                        modifier = Modifier.fillMaxWidth()
+                        placeholder = "6 位配对码",
+                        borderColor = if (pairingError != null) {
+                            MaterialTheme.colorScheme.error
+                        } else {
+                            MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)
+                        },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                     )
                     pairingError?.let { err ->
                         Spacer(Modifier.height(6.dp))
@@ -358,9 +359,11 @@ fun NetworkSettingsView(viewModel: SettingsViewModel) {
                     onClick = { pairTarget = null },
                     enabled = !pairingSubmitting
                 ) {
-                    Text("取消")
+                    Text("取消", color = MaterialTheme.colorScheme.onSurface)
                 }
-            }
+            },
+            containerColor = MaterialTheme.colorScheme.surface,
+            shape = MaterialTheme.shapes.medium
         )
     }
 }

@@ -350,7 +350,7 @@ private fun FfmpegComponentDialog(
                     ) {
                         Text(
                             text = if (catalogInfo.checking) "检查中…" else "检查更新",
-                            color = MelodiaColors.AccentText,
+                            color = MaterialTheme.colorScheme.primary,
                             fontWeight = FontWeight.Bold
                         )
                     }
@@ -362,7 +362,7 @@ private fun FfmpegComponentDialog(
                         else -> "下载"
                     }
                     MelodiaTextButton(onClick = onInstallOrUpdate) {
-                        Text(label, color = MelodiaColors.AccentText, fontWeight = FontWeight.Bold)
+                        Text(label, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -371,15 +371,16 @@ private fun FfmpegComponentDialog(
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 if (isInstalled && !isDownloading) {
                     MelodiaTextButton(onClick = onDelete) {
-                        Text("删除", color = MelodiaColors.Error)
+                        Text("删除", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
                     }
                 }
                 MelodiaTextButton(onClick = onDismiss) {
-                    Text(if (isDownloading) "取消" else "关闭", color = MelodiaColors.TextPrimary)
+                    Text(if (isDownloading) "取消" else "关闭", color = MaterialTheme.colorScheme.onSurface)
                 }
             }
         },
-        containerColor = MelodiaColors.Surface
+        containerColor = MaterialTheme.colorScheme.surface,
+        shape = MaterialTheme.shapes.medium
     )
 }
 

@@ -7,11 +7,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.ReadOnlyComposable
@@ -39,6 +39,8 @@ import com.lin0721.linmusic.core.download.ui.counts
 import com.lin0721.linmusic.core.model.getQualityDisplayName
 import com.lin0721.linmusic.core.player.rememberQueueItemCoverUrl
 import com.lin0721.linmusic.core.ui.components.CoverPlaceholder
+import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
+import com.lin0721.linmusic.core.ui.components.MelodiaTextButton
 import com.lin0721.linmusic.core.ui.components.SecondaryScreenScaffold
 import com.lin0721.linmusic.core.ui.components.ToastManager
 import com.lin0721.linmusic.core.ui.interaction.pressable
@@ -125,18 +127,23 @@ fun DownloadsScreen(
             title = { Text("删除下载", fontWeight = FontWeight.Bold) },
             text = { Text("确定删除「${record.displayName()}」吗？本地文件将一并删除。") },
             confirmButton = {
-                TextButton(onClick = {
-                    viewModel.delete(record)
-                    deleteTarget = null
-                }) {
-                    Text("删除", color = MelodiaColors.AccentText)
+                MelodiaTextButton(
+                    onClick = {
+                        viewModel.delete(record)
+                        deleteTarget = null
+                    },
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("删除", fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { deleteTarget = null }) {
-                    Text("取消", color = MelodiaColors.TextSecondary)
+                MelodiaTextButton(onClick = { deleteTarget = null }) {
+                    Text("取消", color = MaterialTheme.colorScheme.onSurface)
                 }
-            }
+            },
+            containerColor = MaterialTheme.colorScheme.surface,
+            shape = MaterialTheme.shapes.medium
         )
     }
 }
@@ -273,7 +280,7 @@ private fun DownloadedSongRow(record: DownloadRecord, onClick: () -> Unit, onDel
                 )
             }
         }
-        IconButton(onClick = onDeleteClick) {
+        MelodiaIconButton(onClick = onDeleteClick) {
             Icon(MelodiaIcons.Delete, contentDescription = "删除下载", tint = MutedText, modifier = Modifier.size(20.dp))
         }
     }

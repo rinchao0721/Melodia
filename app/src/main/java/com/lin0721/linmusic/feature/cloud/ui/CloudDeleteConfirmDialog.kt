@@ -1,12 +1,11 @@
 package com.lin0721.linmusic.feature.cloud.ui
 
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.ui.components.MelodiaTextButton
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
@@ -27,17 +26,17 @@ fun CloudDeleteConfirmDialog(
             MelodiaTextButton(
                 onClick = onConfirm,
                 enabled = !isDeleting,
-                colors = ButtonDefaults.textButtonColors(contentColor = MelodiaColors.Accent)
+                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
             ) {
                 Text(if (isDeleting) "删除中..." else "是的", fontWeight = FontWeight.Bold)
             }
         },
         dismissButton = {
             MelodiaTextButton(onClick = onDismiss, enabled = !isDeleting) {
-                Text("取消", color = MelodiaColors.TextPrimary)
+                Text("取消", color = MaterialTheme.colorScheme.onSurface)
             }
         },
-        containerColor = MelodiaColors.Surface,
-        shape = RoundedCornerShape(10.dp)
+        containerColor = MaterialTheme.colorScheme.surface,
+        shape = MaterialTheme.shapes.medium
     )
 }

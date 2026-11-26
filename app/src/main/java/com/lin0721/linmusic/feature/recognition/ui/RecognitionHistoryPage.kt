@@ -14,6 +14,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
@@ -94,18 +95,18 @@ internal fun RecognitionHistoryPage(
                         confirmClear = false
                         onClear()
                     },
-                    colors = ButtonDefaults.textButtonColors(contentColor = MelodiaColors.Accent)
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
                 ) {
                     Text("是的", fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
                 MelodiaTextButton(onClick = { confirmClear = false }) {
-                    Text("取消", color = MelodiaColors.TextPrimary)
+                    Text("取消", color = MaterialTheme.colorScheme.onSurface)
                 }
             },
-            containerColor = MelodiaColors.Surface,
-            shape = RoundedCornerShape(10.dp)
+            containerColor = MaterialTheme.colorScheme.surface,
+            shape = MaterialTheme.shapes.medium
         )
     }
 }

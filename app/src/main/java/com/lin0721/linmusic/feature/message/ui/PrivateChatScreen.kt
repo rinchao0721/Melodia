@@ -457,7 +457,7 @@ private fun ListenJoinConfirmDialog(
             MelodiaTextButton(onClick = onConfirm, enabled = !busy) {
                 Text(
                     text = "加入",
-                    color = if (busy) MelodiaColors.TextTertiary else MelodiaColors.AccentText,
+                    color = if (busy) MelodiaColors.TextTertiary else MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.Bold
                 )
             }
@@ -466,11 +466,12 @@ private fun ListenJoinConfirmDialog(
             MelodiaTextButton(onClick = onDismiss, enabled = !busy) {
                 Text(
                     text = "取消",
-                    color = if (busy) MelodiaColors.TextTertiary else MelodiaColors.TextSecondary
+                    color = if (busy) MelodiaColors.TextTertiary else MaterialTheme.colorScheme.onSurface
                 )
             }
         },
-        containerColor = MelodiaColors.Surface
+        containerColor = MaterialTheme.colorScheme.surface,
+        shape = MaterialTheme.shapes.medium
     )
 }
 
@@ -501,7 +502,7 @@ private fun ListenLeaveAndJoinDialog(
             MelodiaTextButton(onClick = onConfirm, enabled = !busy) {
                 Text(
                     text = "退出并加入",
-                    color = if (busy) MelodiaColors.TextTertiary else MelodiaColors.AccentText,
+                    color = if (busy) MelodiaColors.TextTertiary else MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.Bold
                 )
             }
@@ -510,11 +511,12 @@ private fun ListenLeaveAndJoinDialog(
             MelodiaTextButton(onClick = onDismiss, enabled = !busy) {
                 Text(
                     text = "取消",
-                    color = if (busy) MelodiaColors.TextTertiary else MelodiaColors.TextSecondary
+                    color = if (busy) MelodiaColors.TextTertiary else MaterialTheme.colorScheme.onSurface
                 )
             }
         },
-        containerColor = MelodiaColors.Surface
+        containerColor = MaterialTheme.colorScheme.surface,
+        shape = MaterialTheme.shapes.medium
     )
 }
 
