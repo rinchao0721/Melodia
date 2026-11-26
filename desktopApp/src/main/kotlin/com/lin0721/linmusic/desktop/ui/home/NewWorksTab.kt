@@ -25,8 +25,6 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -51,18 +49,20 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectItem
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectState
 import com.lin0721.linmusic.desktop.ui.components.Cover
+import com.lin0721.linmusic.desktop.ui.components.DesktopMenu
 import com.lin0721.linmusic.desktop.ui.components.HoverReveal
 import com.lin0721.linmusic.desktop.ui.components.HoverScrollbarBox
+import com.lin0721.linmusic.desktop.ui.components.MenuItem
 import com.lin0721.linmusic.desktop.ui.components.PlayPauseIcon
 import com.lin0721.linmusic.desktop.ui.components.SimpleMenuItem
 import com.lin0721.linmusic.desktop.ui.components.StateIcon
+import com.lin0721.linmusic.desktop.ui.components.SubMenuItem
 import com.lin0721.linmusic.desktop.ui.components.sizedCoverUrl
 import com.lin0721.linmusic.desktop.ui.library.CreatePlaylistDialog
 import com.lin0721.linmusic.desktop.ui.library.EMPTY_NAME_MESSAGE
@@ -79,7 +79,6 @@ import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.core.ui.icons.Favorite
 import com.lin0721.linmusic.core.ui.icons.FavoriteFilled
 import com.lin0721.linmusic.core.ui.icons.Queue
-import com.lin0721.linmusic.core.ui.icons.ChevronRight
 import com.lin0721.linmusic.core.ui.icons.Download
 import com.lin0721.linmusic.core.ui.icons.MoreHoriz
 import com.lin0721.linmusic.core.ui.icons.PlaylistAdd
@@ -350,8 +349,6 @@ private fun ReleaseCard(
     }
 }
 
-private enum class SubMenu { None, Playlist, Share }
-
 // 「更多」菜单：添加到音乐库 / 加入播放队列 / 加入歌单 ▸ / 下载（暂不可用）/ 分享 ▸
 @Composable
 private fun ReleaseMenu(
@@ -363,109 +360,74 @@ private fun ReleaseMenu(
     actions: NewWorksTabActions,
     onCreatePlaylist: (NewWorksRelease) -> Unit
 ) {
-    var subMenu by remember { mutableStateOf(SubMenu.None) }
     val navigator = LocalDesktopNavigator.current
-    val closeAll = {
-        subMenu = SubMenu.None
-        onDismiss()
-    }
 
-    DropdownMenu(
+    DesktopMenu(
         expanded = expanded,
-        // 子菜单展开时点击落在子菜单上也会触发父级的外部点击，此时不关闭
-        onDismissRequest = { if (subMenu == SubMenu.None) onDismiss() },
-        modifier = Modifier.width(MenuWidth),
-        shape = RoundedCornerShape(6.dp),
-        containerColor = DesktopColors.PopupSurface,
-        shadowElevation = 12.dp
+        onDismiss = onDismiss,
+        width = MenuWidth
     ) {
-        MenuEntry(
-            if (inLibrary) "从音乐库移除" else "添加到音乐库",
-            if (inLibrary) MelodiaIcons.FavoriteFilled else MelodiaIcons.Favorite
-        ) {
-            closeAll()
-            actions.onToggleLibrary(release)
-        }
-        MenuEntry("加入播放队列", MelodiaIcons.Queue) {
-            closeAll()
-            actions.onAddToPlayNext(release)
-        }
-        Box {
-            MenuEntry("加入歌单", MelodiaIcons.PlaylistAdd, chevron = true) {
-                actions.onPrepareImportTargets { subMenu = SubMenu.Playlist }
+        MenuItem(
+            text = if (inLibrary) "从音乐库移除" else "添加到音乐库",
+            icon = if (inLibrary) MelodiaIcons.FavoriteFilled else MelodiaIcons.Favorite,
+            onClick = {
+                onDismiss()
+                actions.onToggleLibrary(release)
             }
-            DropdownMenu(
-                expanded = subMenu == SubMenu.Playlist,
-                onDismissRequest = { subMenu = SubMenu.None },
-                modifier = Modifier.width(MenuWidth),
-                offset = DpOffset(MenuWidth - 12.dp, 0.dp),
-                shape = RoundedCornerShape(6.dp),
-                containerColor = DesktopColors.PopupSurface,
-                shadowElevation = 12.dp
-            ) {
-                MenuEntry("新建歌单", MelodiaIcons.PlaylistAdd) {
-                    closeAll()
+        )
+        MenuItem(
+            text = "加入播放队列",
+            icon = MelodiaIcons.Queue,
+            onClick = {
+                onDismiss()
+                actions.onAddToPlayNext(release)
+            }
+        )
+        SubMenuItem(
+            text = "加入歌单",
+            icon = MelodiaIcons.PlaylistAdd,
+            width = MenuWidth,
+            onOpen = { actions.onPrepareImportTargets {} }
+        ) {
+            SimpleMenuItem(
+                text = "新建歌单",
+                icon = MelodiaIcons.PlaylistAdd,
+                onClick = {
+                    onDismiss()
                     onCreatePlaylist(release)
                 }
-                when {
-                    importState.isLoading -> Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(color = DesktopColors.Accent, modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                    }
-                    importState.items.isEmpty() -> MenuEntry("暂无歌单", null, enabled = false) {}
-                    else -> importState.items.forEach { playlist ->
-                        SimpleMenuItem(
-                            text = playlist.name,
-                            modifier = Modifier.padding(horizontal = 4.dp),
-                            onClick = {
-                                closeAll()
-                                actions.onAddToPlaylist(release, playlist.id)
-                            }
-                        )
-                    }
+            )
+            when {
+                importState.isLoading -> Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = DesktopColors.Accent, modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                }
+                importState.items.isEmpty() -> SimpleMenuItem(text = "暂无歌单", enabled = false, onClick = {})
+                else -> importState.items.forEach { playlist ->
+                    SimpleMenuItem(
+                        text = playlist.name,
+                        onClick = {
+                            onDismiss()
+                            actions.onAddToPlaylist(release, playlist.id)
+                        }
+                    )
                 }
             }
         }
-        MenuEntry("下载", MelodiaIcons.Download, enabled = false) {}
-        Box {
-            MenuEntry("分享", MelodiaIcons.Share, chevron = true) { subMenu = SubMenu.Share }
-            DropdownMenu(
-                expanded = subMenu == SubMenu.Share,
-                onDismissRequest = { subMenu = SubMenu.None },
-                modifier = Modifier.width(MenuWidth),
-                offset = DpOffset(MenuWidth - 12.dp, 0.dp),
-                shape = RoundedCornerShape(6.dp),
-                containerColor = DesktopColors.PopupSurface,
-                shadowElevation = 12.dp
-            ) {
-                MenuEntry("复制链接", null) {
-                    closeAll()
+        MenuItem(text = "下载", icon = MelodiaIcons.Download, enabled = false, onClick = {})
+        SubMenuItem(
+            text = "分享",
+            icon = MelodiaIcons.Share,
+            width = MenuWidth
+        ) {
+            SimpleMenuItem(
+                text = "复制链接",
+                onClick = {
+                    onDismiss()
                     navigator.showMessage(if (copyReleaseLink(release)) COPY_SUCCESS_MESSAGE else COPY_FAILURE_MESSAGE)
                 }
-            }
+            )
         }
     }
-}
-
-@Composable
-private fun MenuEntry(
-    text: String,
-    icon: ImageVector?,
-    enabled: Boolean = true,
-    chevron: Boolean = false,
-    onClick: () -> Unit
-) {
-    SimpleMenuItem(
-        text = text,
-        icon = icon,
-        enabled = enabled,
-        modifier = Modifier.padding(horizontal = 4.dp),
-        trailing = if (chevron) {
-            { Icon(MelodiaIcons.ChevronRight, null, tint = DesktopColors.TextGray, modifier = Modifier.size(16.dp)) }
-        } else {
-            null
-        },
-        onClick = onClick
-    )
 }
 
 private fun copyReleaseLink(release: NewWorksRelease): Boolean {

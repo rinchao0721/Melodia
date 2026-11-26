@@ -14,16 +14,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -40,7 +34,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.toComposeImageBitmap
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -55,7 +48,8 @@ import com.lin0721.linmusic.core.ui.icons.CheckCircle
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.core.ui.icons.Warning
 import com.lin0721.linmusic.desktop.ui.artist.TabBar
-import com.lin0721.linmusic.desktop.ui.playlist.dialogFieldColors
+import com.lin0721.linmusic.desktop.ui.components.DialogButton
+import com.lin0721.linmusic.desktop.ui.components.DialogTextField
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import java.awt.image.BufferedImage
 
@@ -123,9 +117,7 @@ fun KugouLoginDialog(
                     )
                 }
                 Spacer(Modifier.height(8.dp))
-                TextButton(onClick = onDismiss) {
-                    Text("取消", color = DesktopColors.TextPrimary)
-                }
+                DialogButton("取消", onDismiss)
             }
         }
     }
@@ -172,17 +164,13 @@ private fun KugouPhoneLogin(
 
     val isBusy = phoneState is KugouPhoneLoginState.SendingCaptcha || phoneState is KugouPhoneLoginState.Submitting
 
-    OutlinedTextField(
+    DialogTextField(
         value = mobile,
         onValueChange = { input ->
             mobile = input.filter { it.isDigit() }
             if (phoneState is KugouPhoneLoginState.Error) viewModel.resetPhoneState()
         },
-        placeholder = { Text("输入酷狗账号手机号", fontSize = 13.sp) },
-        singleLine = true,
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-        colors = dialogFieldColors(),
-        modifier = Modifier.fillMaxWidth()
+        placeholder = "输入酷狗账号手机号"
     )
     Spacer(Modifier.height(12.dp))
     Row(
@@ -190,33 +178,21 @@ private fun KugouPhoneLogin(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        OutlinedTextField(
+        DialogTextField(
             value = code,
             onValueChange = { input ->
                 code = input.filter { it.isDigit() }
                 if (phoneState is KugouPhoneLoginState.Error) viewModel.resetPhoneState()
             },
-            placeholder = { Text("短信验证码", fontSize = 13.sp) },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            colors = dialogFieldColors(),
+            placeholder = "短信验证码",
             modifier = Modifier.weight(1f)
         )
-        OutlinedButton(
+        DialogButton(
+            text = if (countdownSec > 0) "${countdownSec}s" else "发送验证码",
             onClick = { viewModel.sendPhoneCaptcha(mobile) },
             enabled = !isBusy && countdownSec == 0 && mobile.isNotBlank(),
-            colors = ButtonDefaults.outlinedButtonColors(contentColor = DesktopColors.TextPrimary),
-            modifier = Modifier.height(52.dp)
-        ) {
-            if (phoneState is KugouPhoneLoginState.SendingCaptcha) {
-                CircularProgressIndicator(Modifier.size(16.dp), color = DesktopColors.AccentText, strokeWidth = 2.dp)
-            } else {
-                Text(
-                    if (countdownSec > 0) "${countdownSec}s" else "发送验证码",
-                    fontSize = 12.sp
-                )
-            }
-        }
+            loading = phoneState is KugouPhoneLoginState.SendingCaptcha
+        )
     }
 
     Spacer(Modifier.height(10.dp))
@@ -238,28 +214,17 @@ private fun KugouPhoneLogin(
     val riskError = (phoneState as? KugouPhoneLoginState.Error)?.takeIf { it.suggestQrFallback }
     if (riskError != null) {
         Spacer(Modifier.height(8.dp))
-        OutlinedButton(
-            onClick = onSwitchToQr,
-            colors = ButtonDefaults.outlinedButtonColors(contentColor = DesktopColors.AccentText),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text("改用扫码登录", fontSize = 13.sp, fontWeight = FontWeight.Medium)
-        }
+        DialogButton("改用扫码登录", onSwitchToQr)
     }
 
     Spacer(Modifier.height(14.dp))
-    Button(
+    DialogButton(
+        text = "登录",
         onClick = { viewModel.loginByPhone(mobile, code, onLoginSuccess) },
+        primary = true,
         enabled = !isBusy && mobile.isNotBlank() && code.isNotBlank(),
-        colors = ButtonDefaults.buttonColors(containerColor = DesktopColors.Accent),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        if (phoneState is KugouPhoneLoginState.Submitting) {
-            CircularProgressIndicator(Modifier.size(16.dp), color = DesktopColors.OnAccent, strokeWidth = 2.dp)
-        } else {
-            Text("登录", color = DesktopColors.OnAccent, fontWeight = FontWeight.Bold)
-        }
-    }
+        loading = phoneState is KugouPhoneLoginState.Submitting
+    )
 }
 
 @Composable
@@ -271,9 +236,7 @@ private fun KugouQrContent(state: KugouQrState, onRetry: () -> Unit) {
             KugouQrImage(state.qrMatrix, dimmed = true)
             CircularProgressIndicator(color = DesktopColors.Accent)
         }
-        KugouQrState.Expired -> TextButton(onClick = onRetry) {
-            Text("刷新二维码", color = DesktopColors.AccentText, fontWeight = FontWeight.Bold)
-        }
+        KugouQrState.Expired -> DialogButton("刷新二维码", onRetry)
         is KugouQrState.Error -> Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -284,9 +247,7 @@ private fun KugouQrContent(state: KugouQrState, onRetry: () -> Unit) {
                 tint = DesktopColors.AccentText,
                 modifier = Modifier.size(32.dp)
             )
-            TextButton(onClick = onRetry) {
-                Text("重试", color = DesktopColors.AccentText, fontWeight = FontWeight.Bold)
-            }
+            DialogButton("重试", onRetry)
         }
         is KugouQrState.Success -> Column(
             horizontalAlignment = Alignment.CenterHorizontally,

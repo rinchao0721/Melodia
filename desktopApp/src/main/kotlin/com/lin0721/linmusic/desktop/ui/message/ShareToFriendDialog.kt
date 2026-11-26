@@ -25,7 +25,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -236,9 +235,7 @@ internal fun ShareToFriendDialog(
                         verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         Text(state.message, color = DesktopColors.TextGray, fontSize = 13.sp)
-                        TextButton(onClick = viewModel::refresh) {
-                            Text("重试", color = DesktopColors.TextPrimary)
-                        }
+                        DialogButton("重试", viewModel::refresh)
                     }
                 }
 

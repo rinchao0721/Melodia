@@ -39,7 +39,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -97,7 +96,9 @@ import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.desktop.data.LibraryMode
 import com.lin0721.linmusic.desktop.data.LibraryViewMode
 import com.lin0721.linmusic.desktop.ui.components.Cover
+import com.lin0721.linmusic.desktop.ui.components.DesktopDialog
 import com.lin0721.linmusic.desktop.ui.components.DesktopMenu
+import com.lin0721.linmusic.desktop.ui.components.DialogButton
 import com.lin0721.linmusic.desktop.ui.components.DesktopTooltip
 import com.lin0721.linmusic.desktop.ui.components.HoverReveal
 import com.lin0721.linmusic.desktop.ui.components.HoverScrollbarBox
@@ -591,26 +592,23 @@ internal fun rememberLibraryItemHandlers(viewModel: LibraryViewModel, extras: Li
     deletingItem?.let { item ->
         val entityId = item.entityId.ifBlank { item.id }
         if (entityId != KUGOU_RECENT_PLAYLIST_ID) {
-            AlertDialog(
-                onDismissRequest = { deletingItem = null },
-                title = { Text("删除歌单", color = DesktopColors.TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold) },
-                text = { Text("确定要删除歌单「${item.title}」吗？", color = DesktopColors.TextGray, fontSize = 13.sp) },
-                confirmButton = {
-                    TextButton(onClick = {
-                        viewModel.deleteLibraryPlaylist(item)
-                        deletingItem = null
-                    }) {
-                        Text("删除", color = DangerColor)
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = { deletingItem = null }) {
-                        Text("取消", color = DesktopColors.TextGray)
-                    }
-                },
-                shape = RoundedCornerShape(8.dp),
-                containerColor = DesktopColors.PopupSurface
-            )
+            DesktopDialog(
+                title = "删除歌单",
+                onDismiss = { deletingItem = null },
+                actions = {
+                    DialogButton("取消", { deletingItem = null })
+                    DialogButton(
+                        "删除",
+                        {
+                            viewModel.deleteLibraryPlaylist(item)
+                            deletingItem = null
+                        },
+                        danger = true
+                    )
+                }
+            ) {
+                Text("确定要删除歌单「${item.title}」吗？", color = DesktopColors.TextGray, fontSize = 13.sp)
+            }
         }
     }
 

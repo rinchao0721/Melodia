@@ -16,15 +16,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.AlertDialogDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
@@ -74,15 +69,6 @@ import com.lin0721.linmusic.core.ui.icons.Edit
 private const val MAX_NAME_LENGTH = 40
 private const val MAX_DESC_LENGTH = 1000
 private const val SEARCH_RESULT_MAX_HEIGHT = 360
-
-@Composable
-internal fun dialogFieldColors() = OutlinedTextFieldDefaults.colors(
-    focusedBorderColor = DesktopColors.TextPrimary,
-    unfocusedBorderColor = DesktopColors.SurfaceLight,
-    cursorColor = DesktopColors.TextPrimary,
-    focusedTextColor = DesktopColors.TextPrimary,
-    unfocusedTextColor = DesktopColors.TextPrimary
-)
 
 @Composable
 internal fun EditPlaylistDialog(

@@ -10,8 +10,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -25,16 +23,9 @@ import com.lin0721.linmusic.core.ui.icons.Apps
 import com.lin0721.linmusic.core.ui.icons.Check
 import com.lin0721.linmusic.core.ui.icons.LibraryAdd
 import com.lin0721.linmusic.core.ui.icons.PlaylistAdd
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.AlertDialogDefaults
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -67,9 +58,11 @@ import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.source.MusicPlatform
 import com.lin0721.linmusic.desktop.data.LibraryViewMode
 import com.lin0721.linmusic.desktop.ui.components.DesktopDialog
+import com.lin0721.linmusic.desktop.ui.components.DesktopMenu
 import com.lin0721.linmusic.desktop.ui.components.DesktopTooltip
 import com.lin0721.linmusic.desktop.ui.components.DialogButton
 import com.lin0721.linmusic.desktop.ui.components.DialogTextField
+import com.lin0721.linmusic.desktop.ui.components.MenuScope
 import com.lin0721.linmusic.desktop.ui.components.SimpleMenuItem
 import com.lin0721.linmusic.desktop.ui.components.TooltipSide
 import com.lin0721.linmusic.desktop.ui.components.uiTween
@@ -120,16 +113,13 @@ internal fun LibraryPopupMenu(
     onDismissRequest: () -> Unit,
     anchorWidth: Dp,
     menuWidth: Dp,
-    content: @Composable ColumnScope.() -> Unit
+    content: @Composable MenuScope.() -> Unit
 ) {
-    DropdownMenu(
+    DesktopMenu(
         expanded = expanded,
-        onDismissRequest = onDismissRequest,
-        modifier = Modifier.width(menuWidth),
+        onDismiss = onDismissRequest,
         offset = DpOffset(anchorWidth - menuWidth, MenuGap),
-        shape = RoundedCornerShape(6.dp),
-        containerColor = DesktopColors.PopupSurface,
-        shadowElevation = 12.dp,
+        width = menuWidth,
         content = content
     )
 }

@@ -46,7 +46,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -739,7 +738,7 @@ private fun HistoryColumn(
             }
             Spacer(Modifier.weight(1f))
             if (history.isNotEmpty()) {
-                TextButton(onClick = onClear) { Text("清空", color = DesktopColors.TextGray, fontSize = 12.sp) }
+                DialogButton("清空", onClear)
             }
         }
         if (history.isEmpty()) {

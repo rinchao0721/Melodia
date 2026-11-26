@@ -14,14 +14,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -54,7 +49,8 @@ import com.lin0721.linmusic.core.auth.QrLoginState
 import com.lin0721.linmusic.desktop.platform.BrowserLocator
 import com.lin0721.linmusic.desktop.platform.DesktopWebViewLoginManager
 import com.lin0721.linmusic.desktop.ui.artist.TabBar
-import com.lin0721.linmusic.desktop.ui.playlist.dialogFieldColors
+import com.lin0721.linmusic.desktop.ui.components.DialogButton
+import com.lin0721.linmusic.desktop.ui.components.DialogTextField
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import java.awt.image.BufferedImage
 
@@ -116,9 +112,7 @@ fun LoginDialog(
                     LoginTab.COOKIE -> CookieLogin(viewModel, onLoginSuccess)
                 }
                 Spacer(Modifier.height(8.dp))
-                TextButton(onClick = onDismiss) {
-                    Text("取消", color = DesktopColors.TextPrimary)
-                }
+                DialogButton("取消", onDismiss)
             }
         }
     }
@@ -154,15 +148,10 @@ private fun WebLogin(browserLocator: BrowserLocator, onLoginSuccess: (String) ->
                 textAlign = TextAlign.Center
             )
             Spacer(Modifier.height(16.dp))
-            OutlinedButton(
-                onClick = {
-                    loginError = null
-                    retryTrigger++
-                },
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = DesktopColors.TextPrimary)
-            ) {
-                Text("重试")
-            }
+            DialogButton("重试", {
+                loginError = null
+                retryTrigger++
+            })
         } else {
             CircularProgressIndicator(
                 modifier = Modifier.size(36.dp),
@@ -186,15 +175,10 @@ private fun WebLogin(browserLocator: BrowserLocator, onLoginSuccess: (String) ->
                 modifier = Modifier.padding(horizontal = 16.dp)
             )
             Spacer(Modifier.height(20.dp))
-            OutlinedButton(
-                onClick = {
-                    loginError = null
-                    retryTrigger++
-                },
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = DesktopColors.TextPrimary)
-            ) {
-                Text("重新打开登录窗口", fontSize = 12.sp)
-            }
+            DialogButton("重新打开登录窗口", {
+                loginError = null
+                retryTrigger++
+            })
         }
     }
 }
@@ -223,17 +207,16 @@ private fun ScanLogin(viewModel: LoginViewModel, onLoginSuccess: (String) -> Uni
 private fun CookieLogin(viewModel: LoginViewModel, onLoginSuccess: (String) -> Unit) {
     var cookie by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
-    OutlinedTextField(
+    DialogTextField(
         value = cookie,
         onValueChange = {
             cookie = it
             error = null
         },
-        placeholder = { Text("在浏览器登录 music.163.com 后，复制 Cookie 中 MUSIC_U 的值粘贴到这里", fontSize = 13.sp) },
+        placeholder = "在浏览器登录 music.163.com 后，复制 Cookie 中 MUSIC_U 的值粘贴到这里",
+        singleLine = false,
         minLines = 3,
-        maxLines = 5,
-        colors = dialogFieldColors(),
-        modifier = Modifier.fillMaxWidth()
+        maxLines = 5
     )
     Text(
         error.orEmpty(),
@@ -248,18 +231,7 @@ private fun CookieLogin(viewModel: LoginViewModel, onLoginSuccess: (String) -> U
 
 @Composable
 private fun LoginButton(loading: Boolean, onClick: () -> Unit) {
-    Button(
-        onClick = onClick,
-        enabled = !loading,
-        colors = ButtonDefaults.buttonColors(containerColor = DesktopColors.Accent),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        if (loading) {
-            CircularProgressIndicator(Modifier.size(16.dp), color = DesktopColors.OnAccent, strokeWidth = 2.dp)
-        } else {
-            Text("登录", color = DesktopColors.OnAccent, fontWeight = FontWeight.Bold)
-        }
-    }
+    DialogButton("登录", onClick, primary = true, enabled = !loading, loading = loading)
 }
 
 @Composable
@@ -271,9 +243,7 @@ private fun QrContent(state: QrLoginState, onRetry: () -> Unit) {
             QrImage(state.qrMatrix, dimmed = true)
             CircularProgressIndicator(color = DesktopColors.Accent)
         }
-        QrLoginState.Expired, is QrLoginState.Error -> TextButton(onClick = onRetry) {
-            Text("刷新二维码", color = DesktopColors.AccentText, fontWeight = FontWeight.Bold)
-        }
+        QrLoginState.Expired, is QrLoginState.Error -> DialogButton("刷新二维码", onRetry)
     }
 }
 

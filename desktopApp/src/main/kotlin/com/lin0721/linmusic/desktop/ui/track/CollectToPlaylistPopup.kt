@@ -23,13 +23,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -73,6 +70,7 @@ import com.lin0721.linmusic.core.ui.components.PlaylistCollectItem
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectState
 import com.lin0721.linmusic.core.ui.theme.themedShadow
 import com.lin0721.linmusic.desktop.ui.components.Cover
+import com.lin0721.linmusic.desktop.ui.components.DialogButton
 import com.lin0721.linmusic.desktop.ui.components.HoverScrollbarBox
 import com.lin0721.linmusic.desktop.ui.components.trackTextInputFocus
 import com.lin0721.linmusic.desktop.ui.components.uiTween
@@ -245,25 +243,19 @@ private fun CollectPanel(
 
         Row(
             Modifier.fillMaxWidth().padding(top = 8.dp),
-            horizontalArrangement = Arrangement.End,
+            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            TextButton(onClick = onDismiss) {
-                Text("取消", color = DesktopColors.TextGray, fontSize = 13.sp, fontWeight = FontWeight.Medium)
-            }
+            DialogButton("取消", onDismiss)
             if (changeCount > 0) {
-                Button(
+                DialogButton(
+                    text = "保存 $changeCount 项更改",
                     onClick = {
                         onSave(state.collectItems.map { it.copy(isContains = overrides[it.playlistId] ?: it.isContains) })
                     },
-                    enabled = ready,
-                    shape = RoundedCornerShape(16.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = DesktopColors.Accent),
-                    contentPadding = PaddingValues(horizontal = 16.dp),
-                    modifier = Modifier.padding(start = 4.dp).height(32.dp)
-                ) {
-                    Text("保存 $changeCount 项更改", color = DesktopColors.OnAccent, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                }
+                    primary = true,
+                    enabled = ready
+                )
             }
         }
     }
@@ -296,14 +288,8 @@ private fun CreateRow(name: String, onNameChange: (String) -> Unit, onSubmit: ()
             focusRequester = focusRequester,
             onSubmit = onSubmit
         )
-        TextButton(onClick = onSubmit, enabled = name.isNotBlank(), modifier = Modifier.padding(start = 4.dp)) {
-            Text(
-                "创建",
-                color = if (name.isNotBlank()) DesktopColors.TextPrimary else DesktopColors.TextGray,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Medium
-            )
-        }
+        Spacer(Modifier.width(4.dp))
+        DialogButton("创建", onSubmit, enabled = name.isNotBlank())
     }
 }
 
