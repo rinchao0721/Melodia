@@ -358,6 +358,7 @@ internal fun AppPlayerBar(
         lyricsViewOpen = lyricsView.isOpen,
         onToggleLyricsView = state::toggleLyricsView,
         onEnterMiniPlayer = onEnterMiniPlayer,
-        remoteDeviceName = remoteDeviceName
+        remoteDeviceName = remoteDeviceName,
+        localLibrary = deps.localMusic.repository
     )
 }

@@ -106,6 +106,7 @@ import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.ui.theme.outlinedControls
 import com.lin0721.linmusic.core.ui.theme.styledButtonShape
 import com.lin0721.linmusic.desktop.player.AudioDevice
+import com.lin0721.linmusic.desktop.data.local.LocalLibraryRepository
 import com.lin0721.linmusic.desktop.ui.components.Cover
 import com.lin0721.linmusic.desktop.ui.components.DesktopTooltip
 import com.lin0721.linmusic.desktop.ui.components.LocalUiMotion
@@ -184,7 +185,8 @@ fun PlayerBar(
     onToggleLyricsView: () -> Unit,
     onEnterMiniPlayer: () -> Unit,
     modifier: Modifier = Modifier,
-    remoteDeviceName: String? = null
+    remoteDeviceName: String? = null,
+    localLibrary: LocalLibraryRepository? = null
 ) {
     val nowPlaying by controller.nowPlaying.collectAsState()
     val isPlaying by controller.playWhenReady.collectAsState()
@@ -225,7 +227,8 @@ fun PlayerBar(
         onToggleLyric = onToggleLyric,
         lyricsViewOpen = lyricsViewOpen,
         onToggleLyricsView = onToggleLyricsView,
-        onEnterMiniPlayer = onEnterMiniPlayer
+        onEnterMiniPlayer = onEnterMiniPlayer,
+        localLibrary = localLibrary
     )
     val pluginLayout = LocalPlayerLayouts.current[PlayerLayoutArea.DESKTOP_PLAYER_BAR]
     Column(modifier.fillMaxWidth()) {
@@ -401,9 +404,16 @@ internal class PlayerBarParts(
     val onToggleLyric: () -> Unit,
     val lyricsViewOpen: Boolean,
     val onToggleLyricsView: () -> Unit,
-    val onEnterMiniPlayer: () -> Unit
+    val onEnterMiniPlayer: () -> Unit,
+    val localLibrary: LocalLibraryRepository? = null
 ) {
     private val hasTrack: Boolean get() = nowPlaying != null
+
+    private fun currentLocalPath(): String? {
+        val queue = controller.queue.value
+        val index = controller.currentIndex.value
+        return queue.getOrNull(index)?.localUri?.takeIf { it.isNotBlank() }
+    }
 
     // 插件布局节点到部件的映射；校验已保证只会出现本区域支持的组件
     @Composable
@@ -436,7 +446,16 @@ internal class PlayerBarParts(
             HostAction.PREVIOUS -> if (!isPersonalFm) controller.skipToPrevious()
             HostAction.SEEK_FORWARD -> controller.seekTo((position + SEEK_STEP_MS).coerceAtMost(duration.coerceAtLeast(0L)))
             HostAction.SEEK_BACK -> controller.seekTo((position - SEEK_STEP_MS).coerceAtLeast(0L))
-            HostAction.TOGGLE_LIKE -> if (isPodcast) playerViewModel.toggleSubscribe() else playerViewModel.toggleLike()
+            HostAction.TOGGLE_LIKE -> {
+                val localPath = currentLocalPath()
+                if (localPath != null && localLibrary != null) {
+                    localLibrary.toggleLiked(localPath)
+                } else if (isPodcast) {
+                    playerViewModel.toggleSubscribe()
+                } else {
+                    playerViewModel.toggleLike()
+                }
+            }
             HostAction.CYCLE_PLAY_MODE -> if (!isPersonalFm) {
                 if (playMode == PlayMode.LIST_LOOP) controller.toggleRepeat() else controller.toggleShuffle()
             }
@@ -531,8 +550,24 @@ internal class PlayerBarParts(
     fun LikeButton(modifier: Modifier = Modifier) {
         val track = nowPlaying ?: return
         val navigator = LocalDesktopNavigator.current
+        val queue by controller.queue.collectAsState()
+        val currentIndex by controller.currentIndex.collectAsState()
+        val localPath = queue.getOrNull(currentIndex)?.localUri?.takeIf { it.isNotBlank() }
+        val localLikedLocations = localLibrary?.likedLocations?.collectAsState()?.value ?: emptySet()
+        val isLocalLiked = localPath != null && localLibrary?.isLiked(localPath, localLikedLocations) == true
         val songDetail by playerViewModel.songDetailState.collectAsState()
         val podcast by playerViewModel.podcastState.collectAsState()
+        if (localPath != null && localLibrary != null) {
+            BarIconButton(
+                icon = if (isLocalLiked) MelodiaIcons.CheckCircleFilled else MelodiaIcons.AddCircle,
+                description = if (isLocalLiked) "取消喜欢" else "添加到“我喜欢的音乐”",
+                active = isLocalLiked,
+                size = SideButtonSize, iconSize = SideIconSize,
+                modifier = modifier,
+                onClick = { localLibrary.toggleLiked(localPath) }
+            )
+            return
+        }
         if (podcast.isPodcast) {
             if (podcast.canSubscribe) {
                 BarIconButton(

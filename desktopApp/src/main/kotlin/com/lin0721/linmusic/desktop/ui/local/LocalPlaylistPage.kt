@@ -47,9 +47,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.lin0721.linmusic.core.model.Album
-import com.lin0721.linmusic.core.model.Artist
-import com.lin0721.linmusic.core.model.Track
 import com.lin0721.linmusic.core.player.PlayMode
 import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.desktop.data.local.LOCAL_ALL_TRACKS_ID
@@ -57,7 +54,6 @@ import com.lin0721.linmusic.desktop.data.local.LOCAL_DOWNLOADS_ID
 import com.lin0721.linmusic.desktop.data.local.LocalPlaylistSummary
 import com.lin0721.linmusic.desktop.data.local.LocalScanState
 import com.lin0721.linmusic.desktop.data.local.LocalTrack
-import com.lin0721.linmusic.desktop.platform.revealInFileManager
 import com.lin0721.linmusic.desktop.ui.cloud.CloudMusicActions
 import com.lin0721.linmusic.desktop.ui.cloud.uploadFiles
 import com.lin0721.linmusic.desktop.ui.components.Cover
@@ -66,11 +62,8 @@ import com.lin0721.linmusic.desktop.ui.components.HoverScrollbarBox
 import com.lin0721.linmusic.desktop.ui.components.LocalUiMotion
 import com.lin0721.linmusic.desktop.ui.components.MenuDivider
 import com.lin0721.linmusic.desktop.ui.components.MenuItem
-import com.lin0721.linmusic.desktop.ui.components.MenuScope
 import com.lin0721.linmusic.desktop.ui.components.SimpleMenuItem
 import com.lin0721.linmusic.desktop.ui.components.SubMenuItem
-import com.lin0721.linmusic.desktop.ui.components.copyTextToClipboard
-import com.lin0721.linmusic.desktop.ui.components.songInfoText
 import com.lin0721.linmusic.desktop.ui.components.uiSpring
 import com.lin0721.linmusic.desktop.ui.components.uiTween
 import com.lin0721.linmusic.desktop.ui.palette.FallbackCoverPalette
@@ -87,31 +80,24 @@ import com.lin0721.linmusic.desktop.ui.playlist.scrolledPast
 import com.lin0721.linmusic.desktop.ui.shell.LocalDesktopNavigator
 import com.lin0721.linmusic.desktop.ui.shell.SongActionSources
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
+import com.lin0721.linmusic.desktop.ui.track.LocalLikeControl
 import com.lin0721.linmusic.desktop.ui.track.TrackRow
 import com.lin0721.linmusic.feature.playlist.presentation.PlaylistSortKey
 import com.lin0721.linmusic.feature.playlist.presentation.PlaylistSortOrder
-import com.lin0721.linmusic.feature.playlist.presentation.filterTracks
 import com.lin0721.linmusic.feature.playlist.presentation.formatTotalDuration
-import com.lin0721.linmusic.feature.playlist.presentation.sortTracks
 import kotlinx.coroutines.launch
 import java.io.File
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.core.ui.icons.MusicNote
-import com.lin0721.linmusic.core.ui.icons.Favorite
-import com.lin0721.linmusic.core.ui.icons.FavoriteFilled
-import com.lin0721.linmusic.core.ui.icons.Play
 import com.lin0721.linmusic.core.ui.icons.Queue
 import com.lin0721.linmusic.core.ui.icons.Shuffle
-import com.lin0721.linmusic.core.ui.icons.Copy
 import com.lin0721.linmusic.core.ui.icons.Delete
 import com.lin0721.linmusic.core.ui.icons.Edit
 import com.lin0721.linmusic.core.ui.icons.MoreHoriz
 import com.lin0721.linmusic.core.ui.icons.PushPin
 import com.lin0721.linmusic.core.ui.icons.Refresh
 import com.lin0721.linmusic.core.ui.icons.Upload
-import com.lin0721.linmusic.core.ui.icons.CloudSync
 import com.lin0721.linmusic.core.ui.icons.FolderOff
-import com.lin0721.linmusic.core.ui.icons.FolderOpen
 import com.lin0721.linmusic.core.ui.icons.NewFolder
 
 private const val HERO_DARKEN_FRACTION = 0.35f
@@ -120,17 +106,6 @@ private val HeaderPadding = 24.dp
 private val ActionBarVerticalPadding = 16.dp
 private val PlayButtonSize = 56.dp
 private val StickyBarHeight = 64.dp
-
-// 列表展示用的歌曲行：id 恒为路径占位 id，保证同一首歌匹配到同一网易歌曲时也不重复
-private class LocalRow(val display: Track, val track: LocalTrack)
-
-private fun LocalTrack.toDisplayTrack(coverUri: String?): Track = Track(
-    id = placeholderId,
-    name = title,
-    ar = listOf(Artist(name = artist)),
-    al = Album(name = album, picUrl = coverUri.orEmpty()),
-    dt = durationMs
-)
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -162,7 +137,7 @@ fun LocalPlaylistPage(
     val playMode by controller.playMode.collectAsState()
     val playWhenReady by controller.playWhenReady.collectAsState()
     val playContext by controller.playContext.collectAsState()
-    val likedSongIds by songActions.likes.likedSongIds.collectAsState()
+    val likedLocations by repository.likedLocations.collectAsState()
 
     var query by remember(playlistId) { mutableStateOf("") }
     var order by remember(playlistId) { mutableStateOf(PlaylistSortOrder()) }
@@ -171,16 +146,13 @@ fun LocalPlaylistPage(
     var editingTrack by remember(playlistId) { mutableStateOf<LocalTrack?>(null) }
     var matchingTrack by remember(playlistId) { mutableStateOf<LocalTrack?>(null) }
 
-    val rows = remember(tracks) { tracks.map { LocalRow(it.toDisplayTrack(repository.coverUri(it)), it) } }
-    val shown = remember(rows, query, order) {
-        val byId = rows.associateBy { it.display.id }
-        sortTracks(filterTracks(rows.map { it.display }, query), order, emptyMap()).mapNotNull { byId[it.id] }
-    }
-    val isUserPlaylist = playlistId > 0L
+    val rows = remember(tracks) { tracks.map { LocalTrackRowModel(it.toDisplayTrack(repository.coverUri(it)), it) } }
+    val shown = remember(rows, query, order) { filterAndSortLocalRows(rows, query, order) }
+    val isEditableUserPlaylist = playlistId > 0L && !summary.isSystem
     val isThisContext = playContext == actions.playContext(playlistId)
     val isShuffleActive = playMode == PlayMode.SHUFFLE
 
-    val playFrom: (LocalRow) -> Unit = { row ->
+    val playFrom: (LocalTrackRowModel) -> Unit = { row ->
         val list = shown.map { it.track }
         if (isShuffleActive) {
             actions.playTracks(playlistId, listOf(row.track) + list.filterNot { it.path == row.track.path }.shuffled(), 0)
@@ -195,17 +167,6 @@ fun LocalPlaylistPage(
             else -> {
                 val list = shown.map { it.track }
                 actions.playTracks(playlistId, if (isShuffleActive) list.shuffled() else list, 0)
-            }
-        }
-    }
-    val toggleLike: (Long) -> Unit = { id ->
-        if (!navigator.isLoggedIn) {
-            navigator.showMessage("请先登录账号")
-        } else {
-            scope.launch {
-                songActions.likes.likeSong(id, id !in likedSongIds).collect { result ->
-                    result.onFailure { navigator.showMessage("操作失败") }
-                }
             }
         }
     }
@@ -280,7 +241,7 @@ fun LocalPlaylistPage(
                             order = if (key == PlaylistSortKey.CUSTOM) PlaylistSortOrder() else PlaylistSortOrder(key, true)
                         }
                     }
-                    if (isUserPlaylist) {
+                    if (isEditableUserPlaylist) {
                         Row(
                             Modifier.padding(start = HeaderPadding, end = HeaderPadding, bottom = 12.dp),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -314,10 +275,14 @@ fun LocalPlaylistPage(
                 }
             }
             itemsIndexed(shown, key = { _, row -> row.track.path }) { index, row ->
-                val songId = row.track.songId
+                val isLocalLiked = repository.isLiked(row.track.path, likedLocations)
                 TrackRow(
                     index = index,
                     track = row.display,
+                    localLike = LocalLikeControl(
+                        isLiked = isLocalLiked,
+                        onToggle = { repository.toggleLiked(row.track.path) }
+                    ),
                     qualitySongId = row.track.songId,
                     localQualityLevel = row.track.resolvedQuality(),
                     isCurrent = nowPlaying?.songId == row.track.queueSongId,
@@ -327,14 +292,14 @@ fun LocalPlaylistPage(
                     menuContent = { dismiss ->
                         LocalTrackMenuItems(
                             track = row.track,
-                            isLiked = songId != null && songId in likedSongIds,
+                            isLiked = isLocalLiked,
                             dismiss = dismiss,
                             onPlay = { playFrom(row) },
                             onPlayNext = {
                                 actions.addToPlayNext(listOf(row.track))
                                 navigator.showMessage("已添加至下一首播放")
                             },
-                            onToggleLike = songId?.let { id -> { toggleLike(id) } },
+                            onToggleLike = { repository.toggleLiked(row.track.path) },
                             onEditTags = { editingTrack = row.track },
                             onUpload = { uploadFiles(cloud, navigator, listOf(File(row.track.path))) },
                             onMatch = if (repository.isDownloadedFile(row.track.path)) {
@@ -342,7 +307,7 @@ fun LocalPlaylistPage(
                             } else {
                                 { matchingTrack = row.track }
                             },
-                            onRemove = if (isUserPlaylist) {
+                            onRemove = if (isEditableUserPlaylist) {
                                 { repository.removeTracks(playlistId, listOf(row.track.path)) }
                             } else {
                                 null
@@ -457,7 +422,7 @@ private fun LocalPlaylistMoreMenu(
     onRemove: () -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
-    val isUserPlaylist = !summary.isBuiltin
+    val isEditableUserPlaylist = !summary.isBuiltin && !summary.isSystem
     Box {
         ActionIcon(MelodiaIcons.MoreHoriz, "更多") { expanded = true }
         DesktopMenu(expanded = expanded, onDismiss = { expanded = false }) {
@@ -469,7 +434,7 @@ private fun LocalPlaylistMoreMenu(
                 expanded = false
                 onUploadAll()
             })
-            if (isUserPlaylist) {
+            if (isEditableUserPlaylist) {
                 MenuItem("添加文件夹", icon = MelodiaIcons.NewFolder, onClick = {
                     expanded = false
                     onAddFolder()
@@ -501,7 +466,7 @@ private fun LocalPlaylistMoreMenu(
                 expanded = false
                 onRescan()
             })
-            if (isUserPlaylist) {
+            if (isEditableUserPlaylist) {
                 MenuDivider()
                 MenuItem("移除歌单", icon = MelodiaIcons.Delete, danger = true, onClick = {
                     expanded = false
@@ -509,70 +474,5 @@ private fun LocalPlaylistMoreMenu(
                 })
             }
         }
-    }
-}
-
-@Composable
-private fun MenuScope.LocalTrackMenuItems(
-    track: LocalTrack,
-    isLiked: Boolean,
-    dismiss: () -> Unit,
-    onPlay: () -> Unit,
-    onPlayNext: () -> Unit,
-    onToggleLike: (() -> Unit)?,
-    onEditTags: () -> Unit,
-    onUpload: () -> Unit,
-    onMatch: (() -> Unit)?,
-    onRemove: (() -> Unit)?
-) {
-    val navigator = LocalDesktopNavigator.current
-    MenuItem("播放", icon = MelodiaIcons.Play, onClick = {
-        dismiss()
-        onPlay()
-    })
-    MenuItem("下一首播放", icon = MelodiaIcons.Queue, onClick = {
-        dismiss()
-        onPlayNext()
-    })
-    onToggleLike?.let { toggle ->
-        MenuItem(
-            if (isLiked) "取消喜欢" else "喜欢",
-            icon = if (isLiked) MelodiaIcons.FavoriteFilled else MelodiaIcons.Favorite,
-            onClick = {
-                dismiss()
-                toggle()
-            }
-        )
-    }
-    MenuDivider()
-    MenuItem("编辑歌曲信息", icon = MelodiaIcons.Edit, onClick = {
-        dismiss()
-        onEditTags()
-    })
-    onMatch?.let { match ->
-        MenuItem(if (track.songId != null) "更改网易云匹配" else "匹配网易云歌曲", icon = MelodiaIcons.CloudSync, onClick = {
-            dismiss()
-            match()
-        })
-    }
-    MenuItem("上传到云盘", icon = MelodiaIcons.Upload, onClick = {
-        dismiss()
-        onUpload()
-    })
-    MenuItem("在文件夹中显示", icon = MelodiaIcons.FolderOpen, onClick = {
-        dismiss()
-        if (!revealInFileManager(File(track.path))) navigator.showMessage("文件不存在或无法打开")
-    })
-    MenuItem("复制歌曲信息", icon = MelodiaIcons.Copy, onClick = {
-        dismiss()
-        val ok = copyTextToClipboard(songInfoText(track.title, track.artist))
-        navigator.showMessage(if (ok) "已复制歌曲信息" else "复制失败")
-    })
-    onRemove?.let { remove ->
-        MenuDivider()
-        MenuItem("从歌单中移除", icon = MelodiaIcons.Delete, danger = true, onClick = {
-            dismiss()
-            remove()
-        })
     }
 }

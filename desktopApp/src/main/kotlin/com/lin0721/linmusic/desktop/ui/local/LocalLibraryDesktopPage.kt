@@ -1,10 +1,8 @@
 package com.lin0721.linmusic.desktop.ui.local
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.hoverable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,8 +21,8 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -37,8 +35,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.PointerButton
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -53,20 +49,20 @@ import com.lin0721.linmusic.core.localmusic.ui.sortLocalTracks
 import com.lin0721.linmusic.core.ui.icons.Album
 import com.lin0721.linmusic.core.ui.icons.ArrowBack
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
-import com.lin0721.linmusic.core.ui.icons.MoreHoriz
 import com.lin0721.linmusic.core.ui.icons.MusicNote
-import com.lin0721.linmusic.core.ui.icons.Edit
-import com.lin0721.linmusic.core.ui.icons.Play
-import com.lin0721.linmusic.core.ui.icons.PlaylistAdd
-import com.lin0721.linmusic.core.ui.icons.Sparkle
-import com.lin0721.linmusic.desktop.ui.components.DesktopMenu
-import com.lin0721.linmusic.desktop.ui.components.MenuDivider
-import com.lin0721.linmusic.desktop.ui.components.SimpleMenuItem
-import com.lin0721.linmusic.desktop.ui.library.MenuOption
 import com.lin0721.linmusic.desktop.data.local.LocalLibraryRepository
+import com.lin0721.linmusic.desktop.data.local.toDesktopTrack
+import com.lin0721.linmusic.desktop.ui.components.DesktopMenu
 import com.lin0721.linmusic.desktop.ui.components.DialogButton
-import com.lin0721.linmusic.desktop.ui.components.HoverReveal
+import com.lin0721.linmusic.desktop.ui.components.HoverScrollbarBox
+import com.lin0721.linmusic.desktop.ui.components.LocalUiMotion
+import com.lin0721.linmusic.desktop.ui.library.MenuOption
+import com.lin0721.linmusic.desktop.ui.playlist.TrackColumnHeader
+import com.lin0721.linmusic.desktop.ui.shell.LocalDesktopNavigator
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
+import com.lin0721.linmusic.desktop.ui.track.LocalLikeControl
+import com.lin0721.linmusic.desktop.ui.track.TrackRow
+import com.lin0721.linmusic.feature.playlist.presentation.PlaylistSortOrder
 
 @Composable
 fun LocalLibraryDesktopPage(
@@ -84,10 +80,20 @@ fun LocalLibraryDesktopPage(
     val selectedAlbum by viewModel.selectedAlbum.collectAsState()
     val selectedArtist by viewModel.selectedArtist.collectAsState()
     val playlists by viewModel.playlists.collectAsState()
+    val likedLocations by viewModel.likedLocations.collectAsState()
+    val nowPlaying by viewModel.nowPlaying.collectAsState()
     val resumeInfo by viewModel.resumeInfo.collectAsState()
 
     var matchTargetPath by remember { mutableStateOf<String?>(null) }
     var tagEditTargetPath by remember { mutableStateOf<String?>(null) }
+    val rowContext = LocalRowContext(
+        viewModel = viewModel,
+        playlists = playlists,
+        likedLocations = likedLocations,
+        currentSongId = nowPlaying?.songId,
+        onMatch = { matchTargetPath = it.path },
+        onEditTags = { tagEditTargetPath = it.path }
+    )
 
     val activeTracks = when (selectedNav) {
         LocalLibraryNav.SONGS -> sortedTracks
@@ -133,20 +139,12 @@ fun LocalLibraryDesktopPage(
         when (selectedNav) {
             LocalLibraryNav.SONGS -> LocalTrackList(
                 tracks = sortedTracks,
-                playlists = playlists,
-                onPlay = { idx -> viewModel.playTracks(sortedTracks, idx) },
-                onAddToPlaylist = viewModel::addTrackToPlaylist,
-                onMatch = { matchTargetPath = it.path },
-                onEditTags = { tagEditTargetPath = it.path },
+                context = rowContext,
                 emptyText = "暂无本地歌曲，可在左侧新建歌单并添加文件夹"
             )
             LocalLibraryNav.DOWNLOADS -> LocalTrackList(
                 tracks = downloadTracks,
-                playlists = playlists,
-                onPlay = { idx -> viewModel.playTracks(downloadTracks, idx) },
-                onAddToPlaylist = viewModel::addTrackToPlaylist,
-                onMatch = { matchTargetPath = it.path },
-                onEditTags = { tagEditTargetPath = it.path },
+                context = rowContext,
                 emptyText = "暂无已下载歌曲"
             )
             LocalLibraryNav.ALBUMS -> {
@@ -159,11 +157,7 @@ fun LocalLibraryDesktopPage(
                     val list = sortLocalTracks(album.tracks, sortOrder)
                     LocalTrackList(
                         tracks = list,
-                        playlists = playlists,
-                        onPlay = { idx -> viewModel.playTracks(list, idx) },
-                        onAddToPlaylist = viewModel::addTrackToPlaylist,
-                        onMatch = { matchTargetPath = it.path },
-                        onEditTags = { tagEditTargetPath = it.path },
+                        context = rowContext,
                         emptyText = "该专辑暂无歌曲"
                     )
                 } else {
@@ -183,11 +177,7 @@ fun LocalLibraryDesktopPage(
                     val list = sortLocalTracks(artist.tracks, sortOrder)
                     LocalTrackList(
                         tracks = list,
-                        playlists = playlists,
-                        onPlay = { idx -> viewModel.playTracks(list, idx) },
-                        onAddToPlaylist = viewModel::addTrackToPlaylist,
-                        onMatch = { matchTargetPath = it.path },
-                        onEditTags = { tagEditTargetPath = it.path },
+                        context = rowContext,
                         emptyText = "该歌手暂无歌曲"
                     )
                 } else {
@@ -201,11 +191,7 @@ fun LocalLibraryDesktopPage(
                 root = folderTree,
                 selectedPath = selectedFolderPath,
                 onSelectFolder = viewModel::selectFolder,
-                playlists = playlists,
-                onPlay = { list, idx -> viewModel.playTracks(list, idx) },
-                onAddToPlaylist = viewModel::addTrackToPlaylist,
-                onMatch = { matchTargetPath = it.path },
-                onEditTags = { tagEditTargetPath = it.path }
+                context = rowContext
             )
         }
     }
@@ -280,14 +266,11 @@ private fun DetailHeader(title: String, onBack: () -> Unit) {
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun LocalTrackList(
     tracks: List<LocalTrack>,
-    playlists: List<LocalPlaylist>,
-    onPlay: (Int) -> Unit,
-    onAddToPlaylist: (Long, LocalTrack) -> Unit,
-    onMatch: (LocalTrack) -> Unit,
-    onEditTags: (LocalTrack) -> Unit,
+    context: LocalRowContext,
     emptyText: String
 ) {
     if (tracks.isEmpty()) {
@@ -296,129 +279,66 @@ private fun LocalTrackList(
         }
         return
     }
-    LazyColumn(modifier = Modifier.fillMaxSize()) {
-        itemsIndexed(tracks, key = { _, t -> t.location }) { index, track ->
-            LocalTrackListRow(
-                index = index + 1,
-                track = track,
-                playlists = playlists,
-                onPlay = { onPlay(index) },
-                onAddToPlaylist = { pid -> onAddToPlaylist(pid, track) },
-                onMatch = { onMatch(track) },
-                onEditTags = { onEditTags(track) }
-            )
+    val navigator = LocalDesktopNavigator.current
+    val vm = context.viewModel
+    var order by remember { mutableStateOf(PlaylistSortOrder()) }
+    val pairs = remember(tracks, vm) {
+        tracks.map { shared ->
+            val desktop = shared.toDesktopTrack()
+            LocalTrackRowModel(desktop.toDisplayTrack(vm.coverUriOf(shared)), desktop) to shared
         }
     }
-}
+    val desktopToShared = remember(pairs) { pairs.associate { it.first.track.path to it.second } }
+    val shown = remember(pairs, order) {
+        filterAndSortLocalRows(pairs.map { it.first }, query = "", order = order)
+    }
+    val orderedShared = remember(shown, desktopToShared) {
+        shown.mapNotNull { desktopToShared[it.track.path] }
+    }
+    val listState = rememberLazyListState()
 
-@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
-@Composable
-private fun LocalTrackListRow(
-    index: Int,
-    track: LocalTrack,
-    playlists: List<LocalPlaylist>,
-    onPlay: () -> Unit,
-    onAddToPlaylist: (Long) -> Unit,
-    onMatch: () -> Unit,
-    onEditTags: () -> Unit
-) {
-    val hover = remember { MutableInteractionSource() }
-    val hovered by hover.collectIsHoveredAsState()
-    var menuOpen by remember { mutableStateOf(false) }
-    var playlistMenuOpen by remember { mutableStateOf(false) }
-
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(50.dp)
-            .clip(RoundedCornerShape(8.dp))
-            .background(if (hovered) DesktopColors.Hover else Color.Transparent)
-            .hoverable(hover)
-            .clickable(onClick = onPlay)
-            .pointerInput(track.location) {
-                awaitPointerEventScope {
-                    while (true) {
-                        val event = awaitPointerEvent()
-                        if (event.button == PointerButton.Secondary) menuOpen = true
+    HoverScrollbarBox(listState) {
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(bottom = 16.dp)
+        ) {
+            stickyHeader(key = "columns") {
+                TrackColumnHeader(order, showAdded = false) { order = order.toggled(it) }
+            }
+            itemsIndexed(shown, key = { _, row -> row.track.path }) { index, row ->
+                val shared = desktopToShared[row.track.path] ?: return@itemsIndexed
+                val trackLiked = vm.isLiked(shared, context.likedLocations)
+                TrackRow(
+                    index = index,
+                    track = row.display,
+                    localLike = LocalLikeControl(
+                        isLiked = trackLiked,
+                        onToggle = { vm.toggleLiked(shared) }
+                    ),
+                    qualitySongId = row.track.songId,
+                    localQualityLevel = row.track.resolvedQuality(),
+                    isCurrent = context.currentSongId == row.track.queueSongId,
+                    onPlay = { vm.playTracks(orderedShared, index) },
+                    modifier = if (LocalUiMotion.current.enabled) Modifier.animateItem() else Modifier,
+                    menuContent = { dismiss ->
+                        LocalTrackMenuItems(
+                            track = row.track,
+                            isLiked = trackLiked,
+                            dismiss = dismiss,
+                            onPlay = { vm.playTracks(orderedShared, index) },
+                            onPlayNext = {
+                                vm.addTracksToPlayNext(listOf(shared))
+                                navigator.showMessage("已添加至下一首播放")
+                            },
+                            onToggleLike = { vm.toggleLiked(shared) },
+                            onEditTags = { context.onEditTags(shared) },
+                            onMatch = if (vm.isDownloadedFile(shared)) null else ({ context.onMatch(shared) }),
+                            playlists = context.playlists,
+                            onAddToPlaylist = { pid -> vm.addTrackToPlaylist(pid, shared) }
+                        )
                     }
-                }
-            }
-            .padding(horizontal = 12.dp),
-        contentAlignment = Alignment.CenterStart
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                text = index.toString().padStart(2, '0'),
-                color = DesktopColors.TextGray,
-                fontSize = 12.sp,
-                modifier = Modifier.width(32.dp)
-            )
-            Column(Modifier.weight(1f)) {
-                Text(
-                    text = track.title,
-                    color = DesktopColors.TextPrimary,
-                    fontSize = 13.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
                 )
-                Text(
-                    text = listOfNotNull(track.artist, track.album?.takeIf { it.isNotBlank() }).joinToString(" · "),
-                    color = DesktopColors.TextGray,
-                    fontSize = 11.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-            Text(
-                text = formatDurationMs(track.durationMs),
-                color = DesktopColors.TextGray,
-                fontSize = 12.sp,
-                modifier = Modifier.padding(horizontal = 12.dp)
-            )
-            HoverReveal(revealed = hovered || menuOpen) {
-                Box(
-                    modifier = Modifier
-                        .size(28.dp)
-                        .clip(RoundedCornerShape(6.dp))
-                        .clickable { menuOpen = true },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(MelodiaIcons.MoreHoriz, contentDescription = "更多", tint = DesktopColors.TextGray, modifier = Modifier.size(16.dp))
-                }
-            }
-        }
-
-        // 本地模式菜单：不出现红心、在线收藏等在线项，保留加入本地歌单
-        DesktopMenu(expanded = menuOpen, onDismiss = { menuOpen = false }) {
-            SimpleMenuItem(text = "播放", icon = MelodiaIcons.Play, onClick = {
-                menuOpen = false
-                onPlay()
-            })
-            SimpleMenuItem(text = "加入本地歌单", icon = MelodiaIcons.PlaylistAdd, onClick = {
-                menuOpen = false
-                playlistMenuOpen = true
-            })
-            MenuDivider()
-            SimpleMenuItem(text = "匹配歌词与封面", icon = MelodiaIcons.Sparkle, onClick = {
-                menuOpen = false
-                onMatch()
-            })
-            SimpleMenuItem(text = "编辑标签", icon = MelodiaIcons.Edit, onClick = {
-                menuOpen = false
-                onEditTags()
-            })
-        }
-
-        DesktopMenu(expanded = playlistMenuOpen, onDismiss = { playlistMenuOpen = false }) {
-            if (playlists.isEmpty()) {
-                SimpleMenuItem(text = "暂无本地歌单", enabled = false, onClick = { playlistMenuOpen = false })
-            } else {
-                playlists.forEach { playlist ->
-                    SimpleMenuItem(text = playlist.name, onClick = {
-                        playlistMenuOpen = false
-                        onAddToPlaylist(playlist.id)
-                    })
-                }
             }
         }
     }
@@ -509,11 +429,7 @@ private fun LocalFolderSplitView(
     root: LocalFolderNode,
     selectedPath: String,
     onSelectFolder: (String) -> Unit,
-    playlists: List<LocalPlaylist>,
-    onPlay: (List<LocalTrack>, Int) -> Unit,
-    onAddToPlaylist: (Long, LocalTrack) -> Unit,
-    onMatch: (LocalTrack) -> Unit,
-    onEditTags: (LocalTrack) -> Unit
+    context: LocalRowContext
 ) {
     val flatFolders = remember(root) { flattenFolders(root) }
     val currentNode = remember(root, selectedPath) { findFolderNode(root, selectedPath) ?: root }
@@ -565,11 +481,7 @@ private fun LocalFolderSplitView(
         Box(Modifier.weight(1f).fillMaxHeight().padding(start = 12.dp)) {
             LocalTrackList(
                 tracks = currentNode.tracks,
-                playlists = playlists,
-                onPlay = { idx -> onPlay(currentNode.tracks, idx) },
-                onAddToPlaylist = onAddToPlaylist,
-                onMatch = onMatch,
-                onEditTags = onEditTags,
+                context = context,
                 emptyText = "该文件夹下暂无歌曲"
             )
         }
@@ -600,3 +512,13 @@ private fun formatDurationMs(ms: Long): String {
     val sec = totalSec % 60L
     return "%02d:%02d".format(min, sec)
 }
+
+// 曲库各列表共用的状态与操作入口
+private class LocalRowContext(
+    val viewModel: LocalLibraryDesktopViewModel,
+    val playlists: List<LocalPlaylist>,
+    val likedLocations: Set<String>,
+    val currentSongId: Long?,
+    val onMatch: (LocalTrack) -> Unit,
+    val onEditTags: (LocalTrack) -> Unit
+)

@@ -143,6 +143,12 @@ class TrackReorder(
     val onDragEnd: () -> Unit
 )
 
+@Immutable
+data class LocalLikeControl(
+    val isLiked: Boolean,
+    val onToggle: () -> Unit
+)
+
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun TrackRow(
@@ -152,6 +158,7 @@ fun TrackRow(
     onPlay: () -> Unit,
     modifier: Modifier = Modifier,
     actions: TrackActions? = null,
+    localLike: LocalLikeControl? = null,
     enabled: Boolean = true,
     // 非 null 时在专辑后多一列“添加日期”（歌单页专用）
     addedAtText: String? = null,
@@ -343,6 +350,8 @@ fun TrackRow(
             }
             if (activeActions != null) {
                 TrackLikeButton(track, activeActions, hovered)
+            } else if (localLike != null) {
+                LocalTrackLikeButton(localLike, hovered)
             } else if (activeMenu != null) {
                 Spacer(Modifier.width(32.dp))
             }
@@ -682,6 +691,26 @@ internal fun TrackLikeButton(track: Track, activeActions: TrackActions, hovered:
                     collectPopupOpen = false
                 },
                 onDismiss = { collectPopupOpen = false }
+            )
+        }
+    }
+}
+
+@Composable
+private fun LocalTrackLikeButton(localLike: LocalLikeControl, hovered: Boolean) {
+    val alwaysShowLiked = LocalAlwaysShowLikedBadge.current
+    val showLike = hovered || (alwaysShowLiked && localLike.isLiked)
+    HoverReveal(revealed = showLike, reserveSpace = true) {
+        IconButton(
+            onClick = localLike.onToggle,
+            enabled = showLike,
+            modifier = Modifier.size(32.dp)
+        ) {
+            Icon(
+                if (localLike.isLiked) MelodiaIcons.CheckCircleFilled else MelodiaIcons.AddCircle,
+                if (localLike.isLiked) "取消喜欢" else "添加到“我喜欢的音乐”",
+                tint = if (localLike.isLiked) DesktopColors.Accent else DesktopColors.TextGray,
+                modifier = Modifier.size(18.dp)
             )
         }
     }

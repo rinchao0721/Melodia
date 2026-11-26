@@ -1,6 +1,7 @@
 package com.lin0721.linmusic.desktop.ui.library
 
 import com.lin0721.linmusic.core.localmusic.domain.LocalLibraryIndex
+import com.lin0721.linmusic.core.localmusic.domain.LocalPlaylist
 import com.lin0721.linmusic.core.localmusic.domain.LocalTrack
 import com.lin0721.linmusic.core.source.MusicPlatform
 import com.lin0721.linmusic.core.ui.icons.Edit
@@ -18,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.desktop.data.local.LOCAL_ALL_TRACKS_ID
 import com.lin0721.linmusic.desktop.data.local.LOCAL_DOWNLOADS_ID
+import com.lin0721.linmusic.desktop.data.local.LOCAL_LIKED_ID
 import com.lin0721.linmusic.desktop.data.local.LocalPlaylistSummary
 import com.lin0721.linmusic.desktop.ui.cloud.uploadFiles
 import com.lin0721.linmusic.desktop.ui.components.DesktopMenu
@@ -88,7 +90,8 @@ internal fun LocalPlaylistSummary.toLibraryItem(): LibraryItem = LibraryItem(
     updateTime = createdAt,
     trackCount = trackCount,
     lastPlayTime = lastPlayedAt,
-    isOwnedByMe = true
+    isOwnedByMe = true,
+    isLikedSongs = isLiked
 )
 
 // 「本地音乐」胶囊只显示本地歌单（含全部本地歌曲）；「全部」与「歌单」把本地歌单混排进云端列表
@@ -131,7 +134,7 @@ private fun localOrder(sort: LibrarySortOrder): Comparator<LibraryItem> = when (
 private fun firstTrackCover(tracks: List<LocalTrack>, coverForTrack: (LocalTrack) -> String?): String =
     tracks.firstNotNullOfOrNull(coverForTrack).orEmpty()
 
-// 纯本地模式下构造侧栏列表：顶部固定「全部歌曲」「已下载」不受筛选影响，其余按筛选/搜索/排序组合
+// 纯本地模式下构造侧栏列表：固定三项默认置顶（不受筛选影响），取消置顶后混入普通列表参与筛选与排序
 internal fun buildLocalModeLibraryItems(
     summaries: List<LocalPlaylistSummary>,
     index: LocalLibraryIndex,
@@ -142,19 +145,32 @@ internal fun buildLocalModeLibraryItems(
     query: String,
     sort: LocalLibrarySortOrder
 ): List<LibraryItem> {
+    val likedSummary = summaries.firstOrNull { it.isLiked }
     val allSummary = summaries.firstOrNull { it.id == LOCAL_ALL_TRACKS_ID }
     val dlSummary = summaries.firstOrNull { it.id == LOCAL_DOWNLOADS_ID }
     val allCount = allSummary?.trackCount ?: index.tracks.size
     val dlCount = dlSummary?.trackCount ?: downloadTrackCount
 
-    val fixedPinned = listOf(
+    val fixedItems = listOf(
+        likedSummary?.toLibraryItem() ?: LibraryItem(
+            id = "$LOCAL_ITEM_PREFIX$LOCAL_LIKED_ID",
+            title = LocalPlaylist.LIKED_PLAYLIST_NAME,
+            subtitle = "0 首",
+            coverUrl = "",
+            type = LibraryItemType.PLAYLIST,
+            isPinned = true,
+            trackCount = 0,
+            isOwnedByMe = true,
+            isLikedSongs = true
+        ),
         LibraryItem(
             id = "$LOCAL_ITEM_PREFIX$LOCAL_ALL_TRACKS_ID",
             title = "全部歌曲",
             subtitle = "$allCount 首",
             coverUrl = allSummary?.coverUri ?: firstTrackCover(index.tracks, coverForTrack),
             type = LibraryItemType.PLAYLIST,
-            isPinned = true,
+            isPinned = allSummary?.isPinned ?: true,
+            lastPlayTime = allSummary?.lastPlayedAt ?: 0L,
             trackCount = allCount,
             isOwnedByMe = true
         ),
@@ -164,14 +180,18 @@ internal fun buildLocalModeLibraryItems(
             subtitle = "$dlCount 首",
             coverUrl = dlSummary?.coverUri ?: downloadCoverUri.orEmpty(),
             type = LibraryItemType.PLAYLIST,
-            isPinned = true,
+            isPinned = dlSummary?.isPinned ?: true,
+            lastPlayTime = dlSummary?.lastPlayedAt ?: 0L,
             trackCount = dlCount,
             isOwnedByMe = true
         )
-    ).filter { query.isBlank() || it.title.contains(query, ignoreCase = true) }
+    )
+
+    val fixedPinned = fixedItems.filter { it.isPinned && (query.isBlank() || it.title.contains(query, ignoreCase = true)) }
+    val unpinnedFixed = fixedItems.filterNot { it.isPinned }
 
     val userPlaylists = if (filter == null || filter == LocalLibraryFilter.PLAYLIST) {
-        summaries.filter { it.id > 0L }.map { it.toLibraryItem() }
+        summaries.filter { it.id > 0L && !it.isLiked }.map { it.toLibraryItem() } + unpinnedFixed
     } else {
         emptyList()
     }
@@ -255,6 +275,11 @@ internal fun openLocalModeItem(
 ) {
     val playlistId = item.localPlaylistId()
     when {
+        playlistId == LOCAL_LIKED_ID -> {
+            localVm.openLikedPlaylist { realId ->
+                navigator.openLocalPlaylist(realId, item.title)
+            }
+        }
         playlistId == LOCAL_ALL_TRACKS_ID -> {
             localVm.selectNav(LocalLibraryNav.SONGS)
             navigator.openHome()
@@ -379,7 +404,7 @@ internal fun LocalLibraryItemMenu(
     val navigator = LocalDesktopNavigator.current
     val scope = rememberCoroutineScope()
     val repository = extras.local.repository
-    val isUserPlaylist = id > 0L
+    val isEditableUserPlaylist = id > 0L && !item.isLikedSongs && !repository.isSystemPlaylist(id)
     DesktopMenu(expanded = expanded, onDismiss = onDismiss, offset = offset) {
         MenuItem("播放", icon = MelodiaIcons.Play, onClick = {
             onDismiss()
@@ -400,7 +425,7 @@ internal fun LocalLibraryItemMenu(
                 }
             })
         }
-        if (isUserPlaylist) {
+        if (isEditableUserPlaylist) {
             MenuItem("添加文件夹", icon = MelodiaIcons.NewFolder, onClick = {
                 onDismiss()
                 scope.launch { pickMusicFolder()?.let { repository.addFolder(id, it) } }
@@ -414,17 +439,15 @@ internal fun LocalLibraryItemMenu(
                 onRename()
             })
         }
-        if (!isPureLocalMode || isUserPlaylist) {
-            MenuItem(if (item.isPinned) "取消置顶" else "置顶歌单", icon = MelodiaIcons.PushPin, onClick = {
-                onDismiss()
-                repository.setPinned(id, !item.isPinned)
-            })
-        }
+        MenuItem(if (item.isPinned) "取消置顶" else "置顶歌单", icon = MelodiaIcons.PushPin, onClick = {
+            onDismiss()
+            repository.setPinned(id, !item.isPinned)
+        })
         MenuItem("重新扫描", icon = MelodiaIcons.Refresh, onClick = {
             onDismiss()
             repository.rescan()
         })
-        if (isUserPlaylist) {
+        if (isEditableUserPlaylist) {
             MenuDivider()
             MenuItem("移除歌单", icon = MelodiaIcons.Delete, danger = true, onClick = {
                 onDismiss()

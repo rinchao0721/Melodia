@@ -179,6 +179,13 @@ private val AccentActiveButtons = setOf(
     TitleBarButton.LOCAL_MUSIC
 )
 
+private val LocalModeHiddenButtons = setOf(
+    TitleBarButton.MESSAGES,
+    TitleBarButton.PERSONAL_FM,
+    TitleBarButton.DAILY_RECOMMEND,
+    TitleBarButton.RECOGNITION
+)
+
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
 internal fun WindowScope.TitleBar(
@@ -232,11 +239,16 @@ internal fun WindowScope.TitleBar(
     val density = LocalDensity.current
     val editState = rememberTitleBarEditState(titleBarLayout)
     val baseLayout = if (editMode) editState.workingLayout else titleBarLayout
-    val displayLayout = if (hideMessagesButton && !editMode) {
+    val hiddenButtons = when {
+        isLocalMode -> LocalModeHiddenButtons
+        hideMessagesButton -> setOf(TitleBarButton.MESSAGES)
+        else -> emptySet()
+    }
+    val displayLayout = if (hiddenButtons.isNotEmpty() && (!editMode || isLocalMode)) {
         baseLayout.copy(
-            centerStart = baseLayout.centerStart.filterNot { it == TitleBarButton.MESSAGES },
-            centerEnd = baseLayout.centerEnd.filterNot { it == TitleBarButton.MESSAGES },
-            trailing = baseLayout.trailing.filterNot { it == TitleBarButton.MESSAGES }
+            centerStart = baseLayout.centerStart.filterNot { it in hiddenButtons },
+            centerEnd = baseLayout.centerEnd.filterNot { it in hiddenButtons },
+            trailing = baseLayout.trailing.filterNot { it in hiddenButtons }
         )
     } else {
         baseLayout
@@ -500,13 +512,15 @@ internal fun WindowScope.TitleBar(
             width = TITLE_BAR_MENU_WIDTH
         ) {
             MenuHeader("标题栏按钮")
-            TitleBarButton.entries.forEach { button ->
-                MenuOption(
-                    label = button.title,
-                    selected = displayLayout.isVisible(button),
-                    onClick = { onToggleTitleBarButton(button) }
-                )
-            }
+            TitleBarButton.entries
+                .filterNot { isLocalMode && it in LocalModeHiddenButtons }
+                .forEach { button ->
+                    MenuOption(
+                        label = button.title,
+                        selected = displayLayout.isVisible(button),
+                        onClick = { onToggleTitleBarButton(button) }
+                    )
+                }
             MenuDivider()
             MenuItem(
                 text = if (editMode) "退出编辑" else "编辑排序",

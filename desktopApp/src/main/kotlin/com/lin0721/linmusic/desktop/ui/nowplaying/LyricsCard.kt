@@ -91,12 +91,24 @@ fun LyricsCard(
     onOpenFullscreen: () -> Unit,
     onOpenLyricsView: () -> Unit,
     modifier: Modifier = Modifier,
+    showTranslation: Boolean = true,
     sourceLabel: String? = null
 ) {
     // 与全屏歌词同配方；配色在切换到沉浸主题之前按外层主题深浅算好
     val immersive = rememberImmersiveColors(base)
     ImmersiveTheme {
-        LyricsCardContent(lines, currentIndex, immersive, isPlaying, onSeek, onOpenFullscreen, onOpenLyricsView, modifier, sourceLabel)
+        LyricsCardContent(
+            lines = lines,
+            currentIndex = currentIndex,
+            immersive = immersive,
+            isPlaying = isPlaying,
+            onSeek = onSeek,
+            onOpenFullscreen = onOpenFullscreen,
+            onOpenLyricsView = onOpenLyricsView,
+            modifier = modifier,
+            showTranslation = showTranslation,
+            sourceLabel = sourceLabel
+        )
     }
 }
 
@@ -110,6 +122,7 @@ private fun LyricsCardContent(
     onOpenFullscreen: () -> Unit,
     onOpenLyricsView: () -> Unit,
     modifier: Modifier,
+    showTranslation: Boolean,
     sourceLabel: String?
 ) {
     // 漂移进度只在播放时推进，暂停即停在原处；仅在绘制阶段读取，不触发重组
@@ -137,7 +150,7 @@ private fun LyricsCardContent(
 
     val targetHeight = lyricViewportHeight(
         expanded = expanded,
-        currentHasTranslation = lines.getOrNull(currentIndex)?.translation != null,
+        currentHasTranslation = showTranslation && lines.getOrNull(currentIndex)?.translation != null,
         extraWrapLines = currentWrapLines - 1
     )
     val viewportHeight by animateDpAsState(targetHeight, tween(VIEWPORT_ANIM_MS, easing = FastOutSlowInEasing), label = "lyricViewport")
@@ -180,6 +193,7 @@ private fun LyricsCardContent(
                 inactiveColor = inactiveColor,
                 contentColor = contentColor,
                 expanded = expanded,
+                showTranslation = showTranslation,
                 viewportHeight = viewportHeight,
                 onSeek = onSeek,
                 onCurrentLineLayout = { currentWrapLines = it }
@@ -256,6 +270,7 @@ private fun LyricList(
     inactiveColor: Color,
     contentColor: Color,
     expanded: Boolean,
+    showTranslation: Boolean,
     viewportHeight: Dp,
     onSeek: (Long) -> Unit,
     onCurrentLineLayout: (Int) -> Unit
@@ -283,6 +298,7 @@ private fun LyricList(
                 line = line,
                 isCurrent = index == currentIndex,
                 look = lyricLineLook(index, currentIndex),
+                showTranslation = showTranslation,
                 inactiveColor = inactiveColor,
                 contentColor = contentColor,
                 onClick = { onSeek(line.timeMs) },
@@ -298,6 +314,7 @@ private fun LyricRow(
     line: LyricLine,
     isCurrent: Boolean,
     look: LyricLineLook,
+    showTranslation: Boolean,
     inactiveColor: Color,
     contentColor: Color,
     onClick: () -> Unit,
@@ -340,15 +357,17 @@ private fun LyricRow(
             onTextLayout = { if (isCurrent) onCurrentLineLayout(it.lineCount) },
             modifier = Modifier.fillMaxWidth()
         )
-        line.translation?.let { translation ->
-            Text(
-                translation,
-                fontSize = translationSize,
-                lineHeight = (translationSize.value * 1.35f).sp,
-                fontFamily = lyricFont,
-                color = textColor.copy(alpha = translationAlpha),
-                modifier = Modifier.fillMaxWidth().padding(top = 4.dp)
-            )
+        if (showTranslation) {
+            line.translation?.let { translation ->
+                Text(
+                    translation,
+                    fontSize = translationSize,
+                    lineHeight = (translationSize.value * 1.35f).sp,
+                    fontFamily = lyricFont,
+                    color = textColor.copy(alpha = translationAlpha),
+                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp)
+                )
+            }
         }
     }
 }

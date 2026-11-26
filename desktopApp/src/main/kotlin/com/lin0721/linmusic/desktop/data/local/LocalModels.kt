@@ -1,5 +1,6 @@
 package com.lin0721.linmusic.desktop.data.local
 
+import com.lin0721.linmusic.core.localmusic.domain.LocalPlaylist as SharedLocalPlaylist
 import kotlinx.serialization.Serializable
 import java.io.File
 import java.security.MessageDigest
@@ -9,6 +10,7 @@ const val DEFAULT_MIN_DURATION_SEC = 60
 // 内置歌单 id；用户歌单用创建时间戳，恒为正
 const val LOCAL_DOWNLOADS_ID = -1L
 const val LOCAL_ALL_TRACKS_ID = -2L
+const val LOCAL_LIKED_ID = -3L
 
 // 只有 PENDING 会被自动匹配；用户手动匹配或解除后不再自动改动
 @Serializable
@@ -90,9 +92,12 @@ data class LocalPlaylistSummary(
     val coverUri: String?,
     val isPinned: Boolean,
     val lastPlayedAt: Long,
-    val createdAt: Long
+    val createdAt: Long,
+    val systemKind: String? = null
 ) {
     val isBuiltin: Boolean get() = id <= 0L
+    val isSystem: Boolean get() = systemKind != null
+    val isLiked: Boolean get() = systemKind == SharedLocalPlaylist.SYSTEM_KIND_LIKED
 }
 
 sealed interface LocalScanState {

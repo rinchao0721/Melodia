@@ -43,6 +43,7 @@ import com.lin0721.linmusic.desktop.ui.components.MenuItem
 import com.lin0721.linmusic.desktop.ui.components.copyTextToClipboard
 import com.lin0721.linmusic.desktop.ui.components.songLink
 import com.lin0721.linmusic.desktop.ui.components.SimpleMenuItem
+import com.lin0721.linmusic.desktop.ui.library.MenuOption
 import com.lin0721.linmusic.desktop.ui.components.SubMenuItem
 import com.lin0721.linmusic.desktop.ui.library.LibrarySearchInput
 import com.lin0721.linmusic.desktop.ui.listentogether.ListenTogetherDialog
@@ -119,6 +120,7 @@ internal fun NowPlayingMoreMenu(
     val modes = !podcast.isPodcast && (cloud || isIntelligence || isRoaming)
     val currentQuality = navigator.downloadLevel
 
+    val lyricsCardShowTranslation by playerViewModel.lyricsCardShowTranslation.collectAsState()
     var showListenTogether by remember { mutableStateOf(false) }
     val listenTogether = LocalListenTogetherViewModel.current
     if (showListenTogether && listenTogether != null) {
@@ -337,6 +339,18 @@ internal fun NowPlayingMoreMenu(
                 onDismiss()
                 playerViewModel.setSleepTimer(minutes)
             }
+        }
+
+        if (!podcast.isPodcast) {
+            MenuDivider()
+            MenuOption(
+                label = "歌词卡片显示翻译",
+                selected = lyricsCardShowTranslation,
+                onClick = {
+                    onDismiss()
+                    playerViewModel.setLyricsCardShowTranslation(!lyricsCardShowTranslation)
+                }
+            )
         }
     }
 }

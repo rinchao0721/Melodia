@@ -41,7 +41,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
+import com.lin0721.linmusic.desktop.ui.components.DesktopDialog
+import com.lin0721.linmusic.desktop.ui.components.DialogButton
+import com.lin0721.linmusic.desktop.ui.settings.CardLayoutEditor
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -103,9 +108,12 @@ fun NowPlayingPanel(
     val podcast by playerViewModel.podcastState.collectAsState()
 
     val navigator = LocalDesktopNavigator.current
+    val scope = rememberCoroutineScope()
     val cardLayout by playerViewModel.fullPlayerCardLayout.collectAsState()
+    val lyricsCardShowTranslation by playerViewModel.lyricsCardShowTranslation.collectAsState()
     val commentsState by playerViewModel.commentsState.collectAsState()
     val base = rememberCoverBase(track.artworkUri)
+    var showEditCardsDialog by remember { mutableStateOf(false) }
 
     val scrollState = rememberScrollState()
     HoverScrollbarBox(scrollState) {
@@ -166,6 +174,7 @@ fun NowPlayingPanel(
                                     onSeek = playerViewModel::seekToTime,
                                     onOpenFullscreen = onOpenLyricsFullscreen,
                                     onOpenLyricsView = onOpenLyricsView,
+                                    showTranslation = lyricsCardShowTranslation,
                                     sourceLabel = when (detailState.lyricsSource) {
                                         com.lin0721.linmusic.core.player.LyricsSource.AMLL -> "TTML"
                                         com.lin0721.linmusic.core.player.LyricsSource.QQ ->
@@ -201,6 +210,30 @@ fun NowPlayingPanel(
                                 )
                                 else -> Unit
                             }
+                        }
+                    }
+                }
+                Box(
+                    modifier = Modifier.fillMaxWidth().padding(top = 16.dp, bottom = 8.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    DialogButton(
+                        text = "编辑卡片",
+                        onClick = { showEditCardsDialog = true },
+                        primary = false
+                    )
+                }
+                if (showEditCardsDialog) {
+                    val editableEntries = cardEntries.ifEmpty { PlayerCardEntries.merge(null, emptyList()) }
+                    DesktopDialog(
+                        title = "编辑卡片",
+                        onDismiss = { showEditCardsDialog = false },
+                        actions = {
+                            DialogButton("完成", onClick = { showEditCardsDialog = false }, primary = true)
+                        }
+                    ) {
+                        CardLayoutEditor(editableEntries) { updated ->
+                            scope.launch { cardSource?.save(updated) }
                         }
                     }
                 }

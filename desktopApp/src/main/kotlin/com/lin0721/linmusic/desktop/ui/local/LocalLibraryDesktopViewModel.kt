@@ -90,6 +90,10 @@ class LocalLibraryDesktopViewModel(
     val playlists: StateFlow<List<LocalPlaylist>> = localLibrary.sharedPlaylists.observePlaylists()
         .stateIn(scope, SharingStarted.Eagerly, emptyList())
 
+    val likedLocations: StateFlow<Set<String>> = localLibrary.likedLocations
+
+    val nowPlaying = controller.nowPlaying
+
     val sortedTracks: StateFlow<List<LocalTrack>> = combine(index, _sortOrder) { idx, order ->
         sortLocalTracks(idx.tracks, order)
     }.stateIn(scope, SharingStarted.Eagerly, emptyList())
@@ -200,6 +204,22 @@ class LocalLibraryDesktopViewModel(
             localLibrary.sharedPlaylists.addTracks(playlistId, listOf(track.location))
         }
     }
+
+    fun isLiked(track: LocalTrack, liked: Set<String>): Boolean =
+        localLibrary.isLiked(track.path ?: track.location, liked)
+
+    fun toggleLiked(track: LocalTrack) {
+        localLibrary.toggleLiked(track.path ?: track.location)
+    }
+
+    fun openLikedPlaylist(onReady: (Long) -> Unit) {
+        scope.launch {
+            onReady(localLibrary.ensureLikedPlaylist())
+        }
+    }
+
+    fun isDownloadedFile(track: LocalTrack): Boolean =
+        localLibrary.isDownloadedFile(track.path ?: track.location)
 
     // 与歌单页共用同一套占位 id 与封面，保证按 songId 反查本地路径一致
     fun toQueueItem(track: LocalTrack): QueueItem = localLibrary.toQueueItem(track.toDesktopTrack())

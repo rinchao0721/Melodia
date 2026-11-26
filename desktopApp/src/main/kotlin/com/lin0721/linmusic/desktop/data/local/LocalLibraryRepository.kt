@@ -126,6 +126,9 @@ class LocalLibraryRepository(
     val summaries: StateFlow<List<LocalPlaylistSummary>> = view.map { it.summaries }
         .stateIn(scope, SharingStarted.Eagerly, emptyList())
 
+    val likedLocations: StateFlow<Set<String>> = sharedPlaylists.likedLocations
+        .stateIn(scope, SharingStarted.Eagerly, emptySet())
+
     @Volatile
     private var pathIndex: Map<Long, String> = emptyMap()
 
@@ -242,11 +245,16 @@ class LocalLibraryRepository(
     fun setPinned(playlistId: Long, pinned: Boolean) {
         scope.launch {
             ready.await()
-            if (playlistId <= 0L) {
-                val prev = _builtinStates.value[playlistId] ?: LocalBuiltinState(playlistId)
-                _builtinStates.value = _builtinStates.value + (playlistId to prev.copy(isPinned = pinned))
-            } else {
-                sharedPlaylists.setPinned(playlistId, pinned)
+            when {
+                playlistId == LOCAL_LIKED_ID -> {
+                    val realId = sharedPlaylists.ensureLikedPlaylist()
+                    sharedPlaylists.setPinned(realId, pinned)
+                }
+                playlistId <= 0L -> {
+                    val prev = _builtinStates.value[playlistId] ?: LocalBuiltinState(playlistId)
+                    _builtinStates.value = _builtinStates.value + (playlistId to prev.copy(isPinned = pinned))
+                }
+                else -> sharedPlaylists.setPinned(playlistId, pinned)
             }
         }
     }
@@ -278,6 +286,24 @@ class LocalLibraryRepository(
             }
         }
     }
+
+    fun isLiked(path: String, liked: Set<String> = likedLocations.value): Boolean = normalizePath(path) in liked
+
+    suspend fun ensureLikedPlaylist(): Long {
+        ready.await()
+        return sharedPlaylists.ensureLikedPlaylist()
+    }
+
+    fun toggleLiked(path: String) {
+        scope.launch {
+            ready.await()
+            sharedPlaylists.toggleLiked(normalizePath(path))
+        }
+    }
+
+
+    fun isSystemPlaylist(playlistId: Long): Boolean =
+        summaries.value.firstOrNull { it.id == playlistId }?.isSystem == true
 
     // ─── 扫描与过滤 ───
 
@@ -604,7 +630,7 @@ internal class LibraryView(
             name = name,
             trackCount = list.size,
             coverUri = firstCover(list),
-            isPinned = builtins[id]?.isPinned == true,
+            isPinned = builtins[id]?.isPinned ?: true,
             lastPlayedAt = builtins[id]?.lastPlayedAt ?: 0L,
             createdAt = 0L
         )
@@ -620,7 +646,8 @@ internal class LibraryView(
                 coverUri = firstCover(list),
                 isPinned = playlist.isPinned,
                 lastPlayedAt = playlist.lastPlayedAt,
-                createdAt = playlist.createdAt
+                createdAt = playlist.createdAt,
+                systemKind = playlist.systemKind
             )
         }
     }
