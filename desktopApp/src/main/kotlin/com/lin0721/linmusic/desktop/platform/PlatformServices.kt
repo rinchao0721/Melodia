@@ -70,6 +70,23 @@ interface AutoStartService {
 
 enum class WindowEdge { Left, Right, Top, Bottom, TopLeft, TopRight, BottomLeft, BottomRight }
 
+// 无边框全屏前保存的物理矩形与最大化现场，退出时原样恢复
+data class BorderlessFullscreenRestore(
+    val x: Int,
+    val y: Int,
+    val width: Int,
+    val height: Int,
+    val wasMaximized: Boolean,
+    val normalLeft: Int,
+    val normalTop: Int,
+    val normalRight: Int,
+    val normalBottom: Int,
+    val fullscreenX: Int = 0,
+    val fullscreenY: Int = 0,
+    val fullscreenWidth: Int = 0,
+    val fullscreenHeight: Int = 0
+)
+
 // 无边框主窗口的系统外观，桌面歌词窗口的鼠标穿透，以及无边框窗口的拖动与缩放
 interface WindowEffects {
 
@@ -93,6 +110,18 @@ interface WindowEffects {
     val supportsClickThrough: Boolean
 
     fun setClickThrough(window: Window, enabled: Boolean)
+
+    val supportsBorderlessFullscreen: Boolean
+
+    // 铺满当前所在显示器；不支持或窗口尚未创建时返回 null
+    fun enterBorderlessFullscreen(window: Window): BorderlessFullscreenRestore?
+
+    fun exitBorderlessFullscreen(window: Window, restore: BorderlessFullscreenRestore)
+
+    // 状态同步后重申全屏矩形，防止 AWT 异步还原尺寸覆盖原生位置
+    fun reapplyBorderlessFullscreen(window: Window, restore: BorderlessFullscreenRestore) {
+        enterBorderlessFullscreen(window)
+    }
 
     // 交给系统的移动/缩放循环，跨缩放比例不同的显示器时由系统换算坐标；须在左键按住时调用，未接管返回 false
     fun beginSystemMove(window: Window): Boolean

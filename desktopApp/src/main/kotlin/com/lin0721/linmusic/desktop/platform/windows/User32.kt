@@ -22,6 +22,12 @@ internal interface User32 : Library {
     fun CallWindowProcW(prevWndProc: Pointer?, hWnd: Pointer?, msg: Int, wParam: Long, lParam: Long): Long
     fun SetWindowPos(hWnd: Pointer, hWndInsertAfter: Pointer?, x: Int, y: Int, cx: Int, cy: Int, flags: Int): Boolean
     fun IsZoomed(hWnd: Pointer): Boolean
+    fun ShowWindow(hWnd: Pointer, nCmdShow: Int): Boolean
+    fun GetWindowRect(hWnd: Pointer, lpRect: WinRect): Boolean
+    fun GetWindowPlacement(hWnd: Pointer, lpwndpl: WindowPlacementInfo): Boolean
+    fun SetWindowPlacement(hWnd: Pointer, lpwndpl: WindowPlacementInfo): Boolean
+    fun MonitorFromWindow(hWnd: Pointer, dwFlags: Int): Pointer?
+    fun GetMonitorInfoW(hMonitor: Pointer, lpmi: MonitorInfo): Boolean
     fun GetDpiForWindow(hWnd: Pointer): Int
     fun GetSystemMetricsForDpi(nIndex: Int, dpi: Int): Int
     fun RegisterWindowMessageW(lpString: String): Int
@@ -71,6 +77,11 @@ internal interface User32 : Library {
         const val SWP_NOZORDER = 0x0004
         const val SWP_NOACTIVATE = 0x0010
         const val SWP_FRAMECHANGED = 0x0020
+
+        const val MONITOR_DEFAULTTONEAREST = 2
+
+        const val SW_SHOWMAXIMIZED = 3
+        const val SW_RESTORE = 9
 
         const val SM_CXFRAME = 32
         const val SM_CYFRAME = 33
@@ -156,4 +167,38 @@ internal class Msg : Structure() {
 internal class WinPoint : Structure() {
     @JvmField var x: Int = 0
     @JvmField var y: Int = 0
+}
+
+@Structure.FieldOrder("left", "top", "right", "bottom")
+internal class WinRect : Structure() {
+    @JvmField var left: Int = 0
+    @JvmField var top: Int = 0
+    @JvmField var right: Int = 0
+    @JvmField var bottom: Int = 0
+}
+
+@Structure.FieldOrder("cbSize", "rcMonitor", "rcWork", "dwFlags")
+internal class MonitorInfo : Structure() {
+    @JvmField var cbSize: Int = 0
+    @JvmField var rcMonitor: WinRect = WinRect()
+    @JvmField var rcWork: WinRect = WinRect()
+    @JvmField var dwFlags: Int = 0
+
+    init {
+        cbSize = size()
+    }
+}
+
+@Structure.FieldOrder("length", "flags", "showCmd", "ptMinPosition", "ptMaxPosition", "rcNormalPosition")
+internal class WindowPlacementInfo : Structure() {
+    @JvmField var length: Int = 0
+    @JvmField var flags: Int = 0
+    @JvmField var showCmd: Int = 0
+    @JvmField var ptMinPosition: WinPoint = WinPoint()
+    @JvmField var ptMaxPosition: WinPoint = WinPoint()
+    @JvmField var rcNormalPosition: WinRect = WinRect()
+
+    init {
+        length = size()
+    }
 }

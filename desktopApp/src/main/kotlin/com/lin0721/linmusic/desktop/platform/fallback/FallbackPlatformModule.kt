@@ -2,6 +2,7 @@ package com.lin0721.linmusic.desktop.platform.fallback
 
 import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.desktop.platform.AutoStartService
+import com.lin0721.linmusic.desktop.platform.BorderlessFullscreenRestore
 import com.lin0721.linmusic.desktop.platform.BrowserLocator
 import com.lin0721.linmusic.desktop.platform.GlobalHotkeyService
 import com.lin0721.linmusic.desktop.platform.HotkeyAction
@@ -61,6 +62,7 @@ internal class UnsupportedAutoStart : AutoStartService {
 
 internal class NoopWindowEffects : WindowEffects {
     override val supportsClickThrough: Boolean = false
+    override val supportsBorderlessFullscreen: Boolean = false
     override fun install(window: Window) = Unit
     override fun uninstall(window: Window) = Unit
     override fun applyFrame(window: Window, maximized: Boolean, borderRgb: Int) = Unit
@@ -68,6 +70,9 @@ internal class NoopWindowEffects : WindowEffects {
     override fun systemAppsUseLightTheme(): Boolean = false
     override fun observeSystemTheme(onChanged: () -> Unit): () -> Unit = {}
     override fun setClickThrough(window: Window, enabled: Boolean) = Unit
+    override fun enterBorderlessFullscreen(window: Window): BorderlessFullscreenRestore? = null
+    override fun exitBorderlessFullscreen(window: Window, restore: BorderlessFullscreenRestore) = Unit
+    override fun reapplyBorderlessFullscreen(window: Window, restore: BorderlessFullscreenRestore) = Unit
     override fun beginSystemMove(window: Window): Boolean = false
     override fun beginSystemResize(window: Window, edge: WindowEdge): Boolean = false
     override fun cursorPhysicalPosition(): Point? = null

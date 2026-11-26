@@ -50,6 +50,7 @@ class PlatformModuleTest {
         assertFalse(koin.get<GlobalHotkeyService>().isSupported)
         assertNotNull(koin.get<AutoStartService>().unavailableReason)
         assertFalse(koin.get<WindowEffects>().supportsClickThrough)
+        assertFalse(koin.get<WindowEffects>().supportsBorderlessFullscreen)
         assertNull(koin.get<BrowserLocator>().findChromiumBrowser())
         koin.close()
     }

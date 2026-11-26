@@ -1,6 +1,7 @@
 package com.lin0721.linmusic.desktop.platform.windows
 
 import com.lin0721.linmusic.core.log.AppLogger
+import com.lin0721.linmusic.desktop.platform.BorderlessFullscreenRestore
 import com.lin0721.linmusic.desktop.platform.WindowEdge
 import com.lin0721.linmusic.desktop.platform.WindowEffects
 import com.lin0721.linmusic.desktop.platform.windows.taskbar.SystemTheme
@@ -49,6 +50,8 @@ internal class WindowsWindowEffects : WindowEffects {
     }
 
     override val supportsClickThrough: Boolean = true
+
+    override val supportsBorderlessFullscreen: Boolean = true
 
     // 系统只给带标题栏样式的窗口播放最小化/还原等动画：补齐样式后拦截 WM_NCCALCSIZE，
     // 让客户区占满整个窗口，外观仍是无边框
@@ -194,6 +197,116 @@ internal class WindowsWindowEffects : WindowEffects {
             style and User32.WS_EX_TRANSPARENT.inv()
         }
         user32.SetWindowLongPtrW(hwnd, User32.GWL_EXSTYLE, newStyle)
+    }
+
+    override fun enterBorderlessFullscreen(window: Window): BorderlessFullscreenRestore? {
+        if (!window.isDisplayable) return null
+        return try {
+            val hwnd = Native.getWindowPointer(window) ?: return null
+            val user32 = User32.INSTANCE
+            val placement = WindowPlacementInfo()
+            if (!user32.GetWindowPlacement(hwnd, placement)) return null
+            val windowRect = WinRect()
+            if (!user32.GetWindowRect(hwnd, windowRect)) return null
+            val monitor = user32.MonitorFromWindow(hwnd, User32.MONITOR_DEFAULTTONEAREST) ?: return null
+            val monitorInfo = MonitorInfo()
+            if (!user32.GetMonitorInfoW(monitor, monitorInfo)) return null
+
+            val fullscreenX = monitorInfo.rcMonitor.left
+            val fullscreenY = monitorInfo.rcMonitor.top
+            val fullscreenWidth = monitorInfo.rcMonitor.right - monitorInfo.rcMonitor.left
+            val fullscreenHeight = monitorInfo.rcMonitor.bottom - monitorInfo.rcMonitor.top
+            val windowWidth = windowRect.right - windowRect.left
+            val windowHeight = windowRect.bottom - windowRect.top
+            if (fullscreenWidth <= 0 || fullscreenHeight <= 0 || windowWidth <= 0 || windowHeight <= 0) {
+                return null
+            }
+
+            val wasMaximized = user32.IsZoomed(hwnd)
+            val restore = BorderlessFullscreenRestore(
+                x = windowRect.left,
+                y = windowRect.top,
+                width = windowWidth,
+                height = windowHeight,
+                wasMaximized = wasMaximized,
+                normalLeft = placement.rcNormalPosition.left,
+                normalTop = placement.rcNormalPosition.top,
+                normalRight = placement.rcNormalPosition.right,
+                normalBottom = placement.rcNormalPosition.bottom,
+                fullscreenX = fullscreenX,
+                fullscreenY = fullscreenY,
+                fullscreenWidth = fullscreenWidth,
+                fullscreenHeight = fullscreenHeight
+            )
+            // 先解除最大化标记，避免 WM_NCCALCSIZE 裁剪并保证覆盖任务栏
+            if (wasMaximized) user32.ShowWindow(hwnd, User32.SW_RESTORE)
+            val positioned = user32.SetWindowPos(
+                hwnd,
+                null,
+                fullscreenX,
+                fullscreenY,
+                fullscreenWidth,
+                fullscreenHeight,
+                User32.SWP_NOACTIVATE or User32.SWP_FRAMECHANGED
+            )
+            if (!positioned) {
+                if (wasMaximized) restoreMaximizedPlacement(user32, hwnd, restore)
+                return null
+            }
+            restore
+        } catch (e: RuntimeException) {
+            AppLogger.w(TAG, "进入无边框全屏失败", e)
+            null
+        } catch (e: LinkageError) {
+            AppLogger.w(TAG, "进入无边框全屏失败", e)
+            null
+        }
+    }
+
+    override fun reapplyBorderlessFullscreen(window: Window, restore: BorderlessFullscreenRestore) = withHandle(window) { hwnd ->
+        if (restore.fullscreenWidth <= 0 || restore.fullscreenHeight <= 0) return@withHandle
+        val user32 = User32.INSTANCE
+        if (user32.IsZoomed(hwnd)) user32.ShowWindow(hwnd, User32.SW_RESTORE)
+        user32.SetWindowPos(
+            hwnd,
+            null,
+            restore.fullscreenX,
+            restore.fullscreenY,
+            restore.fullscreenWidth,
+            restore.fullscreenHeight,
+            User32.SWP_NOACTIVATE or User32.SWP_FRAMECHANGED
+        )
+    }
+
+    override fun exitBorderlessFullscreen(window: Window, restore: BorderlessFullscreenRestore) = withHandle(window) { hwnd ->
+        val user32 = User32.INSTANCE
+        if (restore.wasMaximized) {
+            restoreMaximizedPlacement(user32, hwnd, restore)
+        } else if (restore.width > 0 && restore.height > 0) {
+            user32.SetWindowPos(
+                hwnd,
+                null,
+                restore.x,
+                restore.y,
+                restore.width,
+                restore.height,
+                User32.SWP_NOZORDER or User32.SWP_NOACTIVATE or User32.SWP_FRAMECHANGED
+            )
+        }
+    }
+
+    private fun restoreMaximizedPlacement(user32: User32, hwnd: Pointer, restore: BorderlessFullscreenRestore) {
+        val placement = WindowPlacementInfo()
+        user32.GetWindowPlacement(hwnd, placement)
+        placement.flags = 0
+        placement.showCmd = User32.SW_SHOWMAXIMIZED
+        if (restore.normalRight > restore.normalLeft && restore.normalBottom > restore.normalTop) {
+            placement.rcNormalPosition.left = restore.normalLeft
+            placement.rcNormalPosition.top = restore.normalTop
+            placement.rcNormalPosition.right = restore.normalRight
+            placement.rcNormalPosition.bottom = restore.normalBottom
+        }
+        user32.SetWindowPlacement(hwnd, placement)
     }
 
     override fun beginSystemMove(window: Window): Boolean =

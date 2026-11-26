@@ -13,6 +13,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.painter.BitmapPainter
@@ -134,6 +135,7 @@ import org.koin.core.qualifier.named
 import java.awt.Component
 import java.awt.Dimension
 import java.awt.KeyboardFocusManager
+import javax.swing.SwingUtilities
 import kotlin.system.exitProcess
 import java.io.File
 
@@ -154,6 +156,7 @@ private val DEFAULT_WINDOW_SIZE = DpSize(1280.dp, 800.dp)
 private data class WindowSnapshot(
     val placement: WindowPlacement,
     val minimized: Boolean,
+    val fullscreen: Boolean,
     val size: DpSize,
     val position: WindowPosition,
     val awtBounds: java.awt.Rectangle
@@ -479,7 +482,7 @@ fun main(args: Array<String>) {
                     withContext(Dispatchers.Default) { DesktopImageLoader.releaseMemory() }
                 }
         }
-        val fullscreen = rememberFullscreenState(windowState)
+        val fullscreen = rememberFullscreenState(windowState, windowEffects)
         val lyricsView = rememberLyricsViewState(fullscreen)
         val shellSession = rememberDesktopShellSession(appDependencies, lyricsView)
         // 关到托盘久了销毁主窗口，连同 GPU 上下文与整棵界面树一起释放；页面现场留在 shellSession，重建后原样接回
@@ -523,20 +526,39 @@ fun main(args: Array<String>) {
                 }
             }
         ) {
+            DisposableEffect(window, fullscreen) {
+                fullscreen.attachWindow(window)
+                onDispose { fullscreen.detachWindow(window) }
+            }
+            LaunchedEffect(window, fullscreen, fullscreen.syncGeneration) {
+                if (fullscreen.syncGeneration == 0) return@LaunchedEffect
+                // 等 Compose 同步完 placement 并让 AWT 事件落地，避免还原尺寸覆盖原生全屏矩形
+                withFrameNanos { }
+                SwingUtilities.invokeLater {
+                    fullscreen.syncBorderlessWindow()
+                }
+            }
             LaunchedEffect(uiScaleFactor) {
                 val screen = window.graphicsConfiguration?.bounds
                 val (minWidth, minHeight) = scaledMinWindowSize(uiScaleFactor, screen?.width ?: 0, screen?.height ?: 0)
                 window.minimumSize = Dimension(minWidth, minHeight)
             }
             // 全屏不记；最小化时系统会把窗口挪到屏外，同样不记
-            LaunchedEffect(windowState) {
+            LaunchedEffect(windowState, fullscreen) {
                 // 读 size/position 只为订阅它们的变化，实际取值用 AWT 窗口
                 snapshotFlow {
-                    WindowSnapshot(windowState.placement, windowState.isMinimized, windowState.size, windowState.position, window.bounds)
+                    WindowSnapshot(
+                        windowState.placement,
+                        windowState.isMinimized,
+                        fullscreen.isFullscreen,
+                        windowState.size,
+                        windowState.position,
+                        window.bounds
+                    )
                 }
                     .debounce(WINDOW_SAVE_DEBOUNCE_MS)
                     .collect { snapshot ->
-                        if (snapshot.minimized) return@collect
+                        if (snapshot.minimized || snapshot.fullscreen) return@collect
                         val bounds = snapshot.awtBounds
                         when (snapshot.placement) {
                             WindowPlacement.Floating ->
@@ -553,7 +575,11 @@ fun main(args: Array<String>) {
                 }
             }
             // 全屏与最大化一样不要圆角和边框线
-            WindowChromeEffect(windowEffects, maximized = windowState.placement != WindowPlacement.Floating, palette = palette)
+            WindowChromeEffect(
+                windowEffects,
+                maximized = windowState.placement != WindowPlacement.Floating || fullscreen.isFullscreen,
+                palette = palette
+            )
             CanvasClearColorEffect(palette.windowBackground)
             TaskbarThumbnailEffect(taskbarThumbnail, localController)
             if (backdropHost != null && pluginBackdrop != null) {
