@@ -130,18 +130,13 @@ fun SearchScreen(
         viewModel.cancelSearch()
     }
 
-    val discoveryPlatforms = remember(isKugouEnabled, searchPlatforms) {
-        if (isKugouEnabled && MusicPlatform.KUGOU in searchPlatforms) {
-            listOf(MusicPlatform.NETEASE, MusicPlatform.KUGOU)
-        } else {
-            listOf(MusicPlatform.NETEASE)
-        }
-    }
+    // 发现页只展示当前登录平台，不再提供平台切换胶囊
     val activeDiscoveryPlatform = if (selectedPlatform == MusicPlatform.KUGOU && isKugouEnabled) {
         MusicPlatform.KUGOU
     } else {
         MusicPlatform.NETEASE
     }
+    val discoveryPlatforms = listOf(activeDiscoveryPlatform)
     val activeDiscoveryState = if (activeDiscoveryPlatform == MusicPlatform.KUGOU) {
         kugouDiscoveryState
     } else {

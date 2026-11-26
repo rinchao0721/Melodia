@@ -411,8 +411,10 @@ class MelodiaNavigationState(
         navigateTo(Screen.Downloads)
     }
 
+    // 从首页、音乐库入口进入时压入当前栈，返回回到来源页；底栏本地音乐仍按标签切换
     fun openLocalMusic() {
-        navigateTo(Screen.LocalMusic)
+        if (activeTab == Screen.LocalMusic || activeStack.lastOrNull()?.screen == Screen.LocalMusic) return
+        activeStack.add(NavEntry(nextEntryId++, Screen.LocalMusic))
     }
 
     fun openMessage() {

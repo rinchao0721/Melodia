@@ -168,9 +168,10 @@ class MelodiaNavigationStateTest {
 
         val json = Json.encodeToString(NavigationSnapshot.serializer(), nav.toSnapshot())
         val restored = Json.decodeFromString(NavigationSnapshot.serializer(), json)
-        assertEquals(listOf(Screen.Library), restored.libraryStack)
+        assertEquals(listOf(Screen.LocalMusic), restored.localMusicStack)
         assertEquals(
             listOf(
+                Screen.Library,
                 Screen.LocalMusic,
                 Screen.LocalMusicSettings,
                 Screen.LocalArtist("茶太"),
@@ -179,8 +180,19 @@ class MelodiaNavigationStateTest {
                 Screen.LocalPlaylists,
                 Screen.LocalPlaylist(7L)
             ),
-            restored.localMusicStack
+            restored.libraryStack
         )
+    }
+
+    @Test
+    fun `从音乐库进入本地音乐后返回回到音乐库`() = inSnapshot {
+        val nav = MelodiaNavigationState()
+        nav.navigateTo(Screen.Library)
+        nav.openLocalMusic()
+        assertEquals(Screen.Library, nav.activeTab)
+        nav.navigateBack()
+        assertEquals(Screen.Library, nav.activeTab)
+        assertEquals(listOf(Screen.Library), nav.toSnapshot().libraryStack)
     }
 
     @Test

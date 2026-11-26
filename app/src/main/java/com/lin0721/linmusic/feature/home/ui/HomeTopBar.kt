@@ -154,29 +154,40 @@ fun HomeSharedHeader(
                     onSecondarySelected = onSecondarySelected,
                     showPodcastTab = capabilities.supportsPodcast,
                     modifier = Modifier.weight(1f),
-                    contentPadding = PaddingValues(end = if (showSearchButton) 8.dp else 20.dp)
+                    contentPadding = PaddingValues(end = 20.dp),
+                    // 搜索与胶囊同处一行滚动，二级胶囊展开时把它挤出屏幕而不是截断胶囊
+                    trailing = if (showSearchButton) {
+                        { HomeSearchButton(onSearchClick) }
+                    } else {
+                        null
+                    }
                 )
             }
 
-            if (showSearchButton) {
+            if (showSearchButton && (browsePlatform == MusicPlatform.KUGOU || browsePlatform == MusicPlatform.LOCAL)) {
                 Box(modifier = Modifier.padding(end = 20.dp)) {
-                    Box(
-                        modifier = Modifier
-                            .size(36.dp)
-                            .pressable(MelodiaPress.Icon, shape = CircleShape, role = Role.Button, onClick = onSearchClick)
-                            .background(MelodiaColors.FilterPillInactive),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = MelodiaIcons.Search,
-                            contentDescription = "搜索",
-                            tint = MelodiaColors.PillContent,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
+                    HomeSearchButton(onSearchClick)
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun HomeSearchButton(onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .size(36.dp)
+            .pressable(MelodiaPress.Icon, shape = CircleShape, role = Role.Button, onClick = onClick)
+            .background(MelodiaColors.FilterPillInactive),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            imageVector = MelodiaIcons.Search,
+            contentDescription = "搜索",
+            tint = MelodiaColors.PillContent,
+            modifier = Modifier.size(20.dp)
+        )
     }
 }
 
@@ -221,7 +232,8 @@ fun FilterPills(
     onSecondarySelected: () -> Unit,
     showPodcastTab: Boolean = true,
     modifier: Modifier = Modifier,
-    contentPadding: PaddingValues = PaddingValues(horizontal = 20.dp)
+    contentPadding: PaddingValues = PaddingValues(horizontal = 20.dp),
+    trailing: (@Composable () -> Unit)? = null
 ) {
     val labels = remember(showPodcastTab) {
         if (showPodcastTab) listOf("全部", "音乐", "播客") else listOf("全部", "音乐")
@@ -291,6 +303,11 @@ fun FilterPills(
                         )
                     }
                 }
+            }
+        }
+        if (trailing != null) {
+            item(key = "trailing") {
+                Box(modifier = Modifier.padding(start = 12.dp)) { trailing() }
             }
         }
     }
