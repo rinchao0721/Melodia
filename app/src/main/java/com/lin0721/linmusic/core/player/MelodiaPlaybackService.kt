@@ -406,14 +406,17 @@ class MelodiaPlaybackService : MediaSessionService() {
         serviceScope.launch {
             settingsPreferences.exclusiveOutput.collect { usbAudio.setEnabled(it) }
         }
-        // 卸载会绕过输出层增益，交叉淡化与音量平衡开启时都不能卸载
+        // 卸载会绕过输出层增益与变速处理器，交叉淡化、音量平衡或播客倍速时都不能卸载
         serviceScope.launch {
             combine(
                 settingsPreferences.audioOffload,
                 settingsPreferences.crossfadeEnabled,
-                settingsPreferences.loudnessNormalizationEnabled
-            ) { offload, crossfade, loudness ->
-                offload && !crossfade && !loudness
+                settingsPreferences.loudnessNormalizationEnabled,
+                routingPlaybackController.playContext,
+                routingPlaybackController.playbackSpeed
+            ) { offload, crossfade, loudness, ctx, speed ->
+                val podcastSpeedActive = ctx == PlaybackController.CONTEXT_PODCAST && speed != 1.0f
+                offload && !crossfade && !loudness && !podcastSpeedActive
             }.distinctUntilChanged().collect { enabled ->
                 primaryPlayer.setAudioOffloadEnabled(enabled)
                 secondaryPlayer.setAudioOffloadEnabled(enabled)

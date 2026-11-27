@@ -42,6 +42,7 @@ import com.lin0721.linmusic.core.plugin.PluginMenuLocation
 import com.lin0721.linmusic.core.plugin.pluginSongArgs
 import com.lin0721.linmusic.core.plugin.rememberPluginCommands
 import com.lin0721.linmusic.core.player.PersonalFmMode
+import com.lin0721.linmusic.core.player.PodcastSpeedPolicy
 import com.lin0721.linmusic.core.player.formatSleepTimerRemaining
 import kotlinx.coroutines.launch
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
@@ -74,6 +75,8 @@ fun SongMoreOptionsSheet(
     isExternal: Boolean = false,
     // 播客节目：专辑、歌手、收藏到歌单、心动模式、相似歌曲、下载、音质、小歌词都不适用，整项隐藏
     isPodcast: Boolean = false,
+    playbackSpeed: Float = PodcastSpeedPolicy.DEFAULT_SPEED,
+    onSpeedClick: (() -> Unit)? = null,
     showMiniLyric: Boolean = true,
     onToggleMiniLyric: (Boolean) -> Unit,
     onToggleLike: () -> Unit,
@@ -469,6 +472,21 @@ fun SongMoreOptionsSheet(
                             }
                         )
                     }
+                }
+
+                // 播客倍速入口
+                if (isPodcast && onSpeedClick != null) {
+                    OptionRow(
+                        icon = MelodiaIcons.Tune,
+                        text = "播放倍速: ${PodcastSpeedPolicy.format(playbackSpeed)}",
+                        onClick = {
+                            scope.launch {
+                                sheetState.hide()
+                                onDismiss()
+                                onSpeedClick()
+                            }
+                        }
+                    )
                 }
 
                 // 9. 定时关闭

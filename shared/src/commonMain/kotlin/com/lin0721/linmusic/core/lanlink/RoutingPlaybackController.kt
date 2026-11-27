@@ -53,6 +53,7 @@ open class RoutingPlaybackController(
     override val playbackLevel: StateFlow<PlaybackLevel?> = routeFlow(localController.playbackLevel, emptyPlaybackLevel)
     override val playbackQuality: StateFlow<PlaybackQuality?> = routeFlow(localController.playbackQuality, emptyPlaybackQuality)
     override val playbackSource: StateFlow<PlaybackSourceInfo?> = routeFlow(localController.playbackSource, emptyPlaybackSource)
+    override val playbackSpeed: StateFlow<Float> = routeFlow(localController.playbackSpeed, remoteController.playbackSpeed)
     override val currentPosition: StateFlow<Long> = routeFlow(localController.currentPosition, remoteController.currentPosition)
     override val duration: StateFlow<Long> = routeFlow(localController.duration, remoteController.duration)
     override val sleepTimerRemaining: StateFlow<Long> = routeFlow(localController.sleepTimerRemaining, remoteController.sleepTimerRemaining)
@@ -143,6 +144,8 @@ open class RoutingPlaybackController(
     override fun togglePlayPause() = activeController.togglePlayPause()
 
     override fun seekTo(positionMs: Long) = activeController.seekTo(positionMs)
+
+    override fun setPlaybackSpeed(speed: Float) = activeController.setPlaybackSpeed(speed)
 
     override fun reloadCurrentTrack() = activeController.reloadCurrentTrack()
 

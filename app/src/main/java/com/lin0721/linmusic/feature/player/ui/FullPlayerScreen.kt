@@ -106,6 +106,7 @@ import com.lin0721.linmusic.core.ui.theme.rememberMelodiaOrientationClass
 import com.lin0721.linmusic.core.ui.theme.LocalMelodiaPlayerPanelAtStart
 import com.lin0721.linmusic.core.player.PlaySource
 import com.lin0721.linmusic.core.player.PlaybackController
+import com.lin0721.linmusic.core.player.PodcastSpeedPolicy
 import com.lin0721.linmusic.core.preferences.FullPlayerCard
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
 import com.lin0721.linmusic.core.ui.theme.uiTween
@@ -269,6 +270,8 @@ private fun FullPlayerScreenContent(
     val sleepTimerRemaining by viewModel.sleepTimerRemaining.collectAsStateWithLifecycle()
     val commentsState by viewModel.commentsState.collectAsStateWithLifecycle()
     val activeQuality by viewModel.activeQuality.collectAsStateWithLifecycle()
+    val playbackSpeed by viewModel.playerManager.playbackSpeed.collectAsStateWithLifecycle()
+    val exclusiveOutput by settingsPreferences.exclusiveOutput.collectAsStateWithLifecycle(false)
     val collectState by viewModel.collectState.collectAsStateWithLifecycle()
     val playMode by viewModel.playerManager.playMode.collectAsStateWithLifecycle()
     val queue by viewModel.playerManager.queue.collectAsStateWithLifecycle()
@@ -337,6 +340,7 @@ private fun FullPlayerScreenContent(
     CollectPromptEffect(viewModel.collectPromptEvent, openCollectSheet)
     var showOutputDeviceSheet by remember { mutableStateOf(false) }
     var showDownloadQualitySheet by remember { mutableStateOf(false) }
+    var showSpeedSheet by remember { mutableStateOf(false) }
     var showCardEditorSheet by remember { mutableStateOf(false) }
     var artistPickerEntries by remember { mutableStateOf<List<ArtistPickerEntry>>(emptyList()) }
     // 歌手入口统一走这里：单歌手直接跳转，多歌手弹选择面板（头像优先取已加载的歌手卡片资料）
@@ -396,6 +400,17 @@ private fun FullPlayerScreenContent(
         null
     }
     val podcast by viewModel.podcastState.collectAsStateWithLifecycle()
+    val openSpeedPicker: (() -> Unit)? = if (podcast.isPodcast) {
+        { showSpeedSheet = true }
+    } else {
+        null
+    }
+    val onSelectPodcastSpeed: (Float) -> Unit = { speed ->
+        viewModel.playerManager.setPlaybackSpeed(speed)
+        if (exclusiveOutput && PodcastSpeedPolicy.normalize(speed) != PodcastSpeedPolicy.DEFAULT_SPEED) {
+            ToastManager.showToast("USB 独占输出开启时暂不支持倍速播放")
+        }
+    }
     // 播客节目没有歌词、歌曲评论与歌手专辑信息，信息卡与小歌词整体不展示
     val storedCardLayout by viewModel.fullPlayerCardLayout.collectAsStateWithLifecycle()
     val cardLayout = if (podcast.isPodcast) emptyList() else storedCardLayout
@@ -464,6 +479,10 @@ private fun FullPlayerScreenContent(
 
     BackHandler(enabled = showDownloadQualitySheet) {
         showDownloadQualitySheet = false
+    }
+
+    BackHandler(enabled = showSpeedSheet) {
+        showSpeedSheet = false
     }
 
     BackHandler(enabled = showPersonalFmModeSheet) {
@@ -976,6 +995,8 @@ private fun FullPlayerScreenContent(
                         playContext = playContext,
                         podcast = podcast,
                         onToggleSubscribe = viewModel::toggleSubscribe,
+                        playbackSpeed = playbackSpeed,
+                        onSpeedClick = openSpeedPicker,
                         currentLyricIndex = currentLyricIndex,
                         isPlaying = isPlaying,
                         playWhenReady = playWhenReady,
@@ -1175,7 +1196,10 @@ private fun FullPlayerScreenContent(
                         onDisableIntelligence = { viewModel.playerManager.disableIntelligence() },
                         isPersonalFm = isPersonalFm,
                         onTrashFm = viewModel::trashCurrentFmSong,
-                        showModeButtons = !podcast.isPodcast
+                        showModeButtons = !podcast.isPodcast,
+                        isPodcast = podcast.isPodcast,
+                        playbackSpeed = playbackSpeed,
+                        onSpeedClick = openSpeedPicker
                     )
                     ActionButtons(
                         onOutputDeviceClick = { showOutputDeviceSheet = true },
@@ -1334,6 +1358,11 @@ private fun FullPlayerScreenContent(
             activeQuality = activeQuality,
             showMiniLyric = showMiniLyric,
             isPodcast = podcast.isPodcast,
+            playbackSpeed = playbackSpeed,
+            showSpeedSheet = showSpeedSheet,
+            onSpeedClick = openSpeedPicker,
+            onSpeedSelected = onSelectPodcastSpeed,
+            onSpeedDismiss = { showSpeedSheet = false },
             personalFmMode = personalFmMode,
             showPersonalFmModeSheet = showPersonalFmModeSheet,
             qualityDetail = if (showQualityDetailSheet) qualityDisplay else null,

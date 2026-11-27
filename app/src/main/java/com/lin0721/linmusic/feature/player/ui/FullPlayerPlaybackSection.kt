@@ -54,6 +54,8 @@ fun LazyListScope.fullPlayerPlaybackSection(
     playContext: String?,
     podcast: PodcastPlayerState = PodcastPlayerState(),
     onToggleSubscribe: () -> Unit = {},
+    playbackSpeed: Float = 1.0f,
+    onSpeedClick: (() -> Unit)? = null,
     currentLyricIndex: Int,
     isPlaying: Boolean,
     // 大播放按钮专用：弱网缓冲期间也要立刻显示"暂停中"，不受歌词区仍用的严格 isPlaying 影响
@@ -199,7 +201,10 @@ fun LazyListScope.fullPlayerPlaybackSection(
             onDisableIntelligence = onDisableIntelligence,
             isPersonalFm = playContext == PlaybackController.CONTEXT_PERSONAL_FM,
             onTrashFm = onTrashFm,
-            showModeButtons = !podcast.isPodcast
+            showModeButtons = !podcast.isPodcast,
+            isPodcast = podcast.isPodcast,
+            playbackSpeed = playbackSpeed,
+            onSpeedClick = onSpeedClick
         )
     }
 

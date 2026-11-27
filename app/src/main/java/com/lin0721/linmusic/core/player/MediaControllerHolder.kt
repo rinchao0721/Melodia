@@ -5,6 +5,7 @@ import android.content.Context
 import android.os.Bundle
 import androidx.core.content.ContextCompat
 import androidx.media3.common.MediaItem
+import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.common.Tracks
 import androidx.media3.session.MediaController
@@ -117,6 +118,10 @@ class MediaControllerHolder(private val context: Context) {
     fun setRepeatMode(mode: PlayMode) {
         commandPlayer?.repeatMode = if (mode == PlayMode.SINGLE_LOOP)
             Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
+    }
+
+    fun setPlaybackSpeed(speed: Float) {
+        commandPlayer?.setPlaybackParameters(PlaybackParameters(speed))
     }
 
     // 装载并起播单个曲目，支持从断点位置直接起播；playWhenReady=false 时只装载不起播

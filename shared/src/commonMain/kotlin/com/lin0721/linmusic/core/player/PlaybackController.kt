@@ -22,6 +22,7 @@ data class PlaybackLevel(val songId: Long, val level: String)
 private val NO_PLAYBACK_LEVEL: StateFlow<PlaybackLevel?> = MutableStateFlow(null)
 private val NO_PLAYBACK_QUALITY: StateFlow<PlaybackQuality?> = MutableStateFlow(null)
 private val NO_PLAYBACK_SOURCE: StateFlow<PlaybackSourceInfo?> = MutableStateFlow(null)
+private val DEFAULT_PLAYBACK_SPEED: StateFlow<Float> = MutableStateFlow(PodcastSpeedPolicy.DEFAULT_SPEED)
 
 // 播放门面的跨平台契约，各平台以各自播放引擎实现
 interface PlaybackController {
@@ -46,6 +47,8 @@ interface PlaybackController {
 
     // 当前曲目的播放来源（官方/社区/本地/缓存），默认不提供
     val playbackSource: StateFlow<PlaybackSourceInfo?> get() = NO_PLAYBACK_SOURCE
+    // 当前曲目的播放倍速（播客模式下 0.5x ~ 3.0x，普通音乐 1.0x）
+    val playbackSpeed: StateFlow<Float> get() = DEFAULT_PLAYBACK_SPEED
     val currentPosition: StateFlow<Long>
 
     // 实时播放进度（毫秒），供歌词渲染等需要平滑插值的场景使用
@@ -112,6 +115,7 @@ interface PlaybackController {
     fun resume()
     fun togglePlayPause()
     fun seekTo(positionMs: Long)
+    fun setPlaybackSpeed(speed: Float) {}
     fun reloadCurrentTrack()
     fun setSleepTimer(minutes: Int)
     fun setPositionUpdateInterval(intervalMs: Long)
