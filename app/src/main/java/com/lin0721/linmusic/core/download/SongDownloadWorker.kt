@@ -84,6 +84,8 @@ class SongDownloadWorker(
         const val KEY_KUGOU_MIX_SONG_ID = "kugou_mix_song_id"
         const val KEY_KUGOU_ALBUM_AUDIO_ID = "kugou_album_audio_id"
         const val KEY_KUGOU_ALBUM_ID = "kugou_album_id"
+        const val KEY_IS_PODCAST = "is_podcast"
+        const val KEY_RADIO_ID = "radio_id"
         const val KEY_PROGRESS_SONG_NAME = "progress_song_name"
         const val KEY_PROGRESS_PERCENT = "progress_percent"
         // 已拿到下载名额开始下载；WorkManager 中处于 RUNNING 但未开始的任务仍在排队
@@ -111,7 +113,9 @@ class SongDownloadWorker(
             batchLabel: String? = null,
             durationMs: Long = 0,
             trackId: TrackId? = null,
-            kugouMeta: KugouTrackMeta? = null
+            kugouMeta: KugouTrackMeta? = null,
+            isPodcast: Boolean = false,
+            radioId: Long = 0L
         ) = workDataOf(
             KEY_SONG_ID to songId,
             KEY_SONG_NAME to songName,
@@ -127,7 +131,9 @@ class SongDownloadWorker(
             KEY_KUGOU_HASH to kugouMeta?.hash,
             KEY_KUGOU_MIX_SONG_ID to (kugouMeta?.mixSongId ?: -1L),
             KEY_KUGOU_ALBUM_AUDIO_ID to (kugouMeta?.albumAudioId ?: -1L),
-            KEY_KUGOU_ALBUM_ID to kugouMeta?.albumId
+            KEY_KUGOU_ALBUM_ID to kugouMeta?.albumId,
+            KEY_IS_PODCAST to isPodcast,
+            KEY_RADIO_ID to radioId
         )
     }
 
@@ -141,6 +147,8 @@ class SongDownloadWorker(
     private val level: String get() = inputData.getString(KEY_LEVEL) ?: "standard"
     private val batchTag: String? get() = inputData.getString(KEY_BATCH_TAG)
     private val batchLabel: String get() = inputData.getString(KEY_BATCH_LABEL) ?: "歌曲"
+    private val isPodcast: Boolean get() = inputData.getBoolean(KEY_IS_PODCAST, false)
+    private val radioId: Long get() = inputData.getLong(KEY_RADIO_ID, 0L)
     private val effectiveTrackId: TrackId
         get() = inputData.getString(KEY_TRACK_ID)?.let(TrackId::parseOrNull)
             ?: TrackId.netease(songId.coerceAtLeast(0L))
@@ -202,7 +210,7 @@ class SongDownloadWorker(
             val platform = trackId.platform
             val query = PluginTrackQuery(trackId.rawId, songName, artistName, albumName, durationMs, platform)
             val outcome = if (platform == MusicPlatform.NETEASE) {
-                urlResolver.resolve(songId, level, query)
+                urlResolver.resolve(songId, level, query, preferPlayerFallback = isPodcast)
             } else {
                 urlResolver.resolvePlatform(trackId, level, query, kugouMeta)
             }
@@ -297,7 +305,9 @@ class SongDownloadWorker(
                     artistName = artistName,
                     // 插件来源以实际音质为准，避免之后选更高音质时被判为已下载
                     requestedLevel = if (source.fromPlugin) source.level else level,
-                    trackId = trackId
+                    trackId = trackId,
+                    isPodcast = isPodcast,
+                    radioId = radioId
                 )
             )
 
@@ -426,15 +436,24 @@ class SongDownloadWorker(
         return settled to total
     }
 
-    private fun relativePath(): String {
-        val folder = batchTag?.let { sanitizeFileName(batchLabel) }
-        return if (folder != null) "Music/Melodia/$folder/" else "Music/Melodia/"
+    // 播客额外存放在 Podcast/<电台名> 子目录下，避免与普通歌曲混放
+    private fun subFolders(): List<String> = if (isPodcast) {
+        val radioFolder = albumName.takeIf { it.isNotBlank() }?.let(::sanitizeFileName)
+        listOfNotNull("Podcast", radioFolder)
+    } else {
+        listOfNotNull(batchTag?.let { sanitizeFileName(batchLabel) })
     }
 
-    private fun ensureMusicDirectoryExists(folderName: String?) {
+    private fun relativePath(): String {
+        val sub = subFolders().joinToString("/")
+        return if (sub.isNotEmpty()) "Music/Melodia/$sub/" else "Music/Melodia/"
+    }
+
+    private fun ensureMusicDirectoryExists(subFolders: List<String>) {
         runCatching {
             val musicDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC)
-            val targetDir = if (folderName != null) File(musicDir, "Melodia/$folderName") else File(musicDir, "Melodia")
+            val relative = (listOf("Melodia") + subFolders).joinToString(File.separator)
+            val targetDir = File(musicDir, relative)
             if (!targetDir.exists()) {
                 targetDir.mkdirs()
             }
@@ -442,8 +461,7 @@ class SongDownloadWorker(
     }
 
     private fun insertPendingMediaStoreEntry(displayName: String, mimeType: String): Uri? {
-        val folder = batchTag?.let { sanitizeFileName(batchLabel) }
-        ensureMusicDirectoryExists(folder)
+        ensureMusicDirectoryExists(subFolders())
         val values = ContentValues().apply {
             put(MediaStore.Audio.Media.DISPLAY_NAME, displayName)
             put(MediaStore.Audio.Media.MIME_TYPE, mimeType)
@@ -494,16 +512,19 @@ class SongDownloadWorker(
         applicationContext.contentResolver.update(uri, values, null, null)
     }
 
-    // 解析自定义存储目录
+    // 解析自定义存储目录（逐级创建子目录，如 Podcast/<电台名>）
     private fun resolveCustomDirectory(customFolderUri: String): DocumentFile? {
         val root = runCatching {
             DocumentFile.fromTreeUri(applicationContext, Uri.parse(customFolderUri))
         }.getOrNull() ?: return null
         if (!root.exists() || !root.canWrite()) return null
-        val tag = batchTag ?: return root
-        val folderName = sanitizeFileName(batchLabel)
-        return root.findFile(folderName)?.takeIf { it.isDirectory }
-            ?: root.createDirectory(folderName)
+        var current: DocumentFile = root
+        for (folderName in subFolders()) {
+            current = current.findFile(folderName)?.takeIf { it.isDirectory }
+                ?: current.createDirectory(folderName)
+                ?: return null
+        }
+        return current
     }
 
     // 避免文件名冲突
@@ -518,7 +539,7 @@ class SongDownloadWorker(
     private suspend fun writeTags(file: File, extension: String) {
         val trackId = effectiveTrackId
         val router = platformPlaybackRouter
-        val shouldEmbedLyrics = settingsPreferences.downloadLyricsEnabled.first()
+        val shouldEmbedLyrics = !isPodcast && settingsPreferences.downloadLyricsEnabled.first()
         val rawLyrics = if (shouldEmbedLyrics) {
             when {
                 trackId.platform == MusicPlatform.KUGOU && router != null -> {

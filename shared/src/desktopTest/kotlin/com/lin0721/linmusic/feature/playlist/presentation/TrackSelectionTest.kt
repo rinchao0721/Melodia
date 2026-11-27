@@ -96,4 +96,27 @@ class TrackSelectionTest {
 
         assertEquals(listOf(1L, 3L), picked.map { it.id })
     }
+
+    @Test
+    fun selectRangeToSelectsInclusiveSpanForwardAndBackward() {
+        val ids = listOf(10L, 20L, 30L, 40L, 50L)
+
+        val forward = TrackSelection().enter(20L).selectRangeTo(40L, ids)
+        assertEquals(setOf(20L, 30L, 40L), forward.selectedIds)
+
+        val backward = TrackSelection().enter(40L).selectRangeTo(10L, ids)
+        assertEquals(setOf(40L, 10L, 20L, 30L), backward.selectedIds)
+    }
+
+    @Test
+    fun selectIndexRangeClampsAndActivatesSelection() {
+        val ids = listOf(10L, 20L, 30L, 40L)
+
+        val range = TrackSelection().selectIndexRange(ids, startIndex = 3, endIndex = 1)
+        assertTrue(range.active)
+        assertEquals(setOf(20L, 30L, 40L), range.selectedIds)
+
+        val clamped = TrackSelection().selectIndexRange(ids, startIndex = -2, endIndex = 99)
+        assertEquals(ids.toSet(), clamped.selectedIds)
+    }
 }

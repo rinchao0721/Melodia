@@ -42,6 +42,9 @@ class CommonSettingsViewModel(
     }
 
     val wifiQuality = settingsPreferences.wifiQuality.asState("lossless")
+    val downloadQuality = settingsPreferences.downloadQuality.asState("lossless")
+    val askDownloadQuality = settingsPreferences.askDownloadQuality.asState(false)
+    val downloadFallbackHighestQuality = settingsPreferences.downloadFallbackHighestQuality.asState(true)
     val crossfadeEnabled = settingsPreferences.crossfadeEnabled.asState(false)
     val crossfadeDurationMs = settingsPreferences.crossfadeDurationMs.asState(CrossfadePolicy.DEFAULT_DURATION_MS)
     val smartCrossfadeEnabled = settingsPreferences.smartCrossfadeEnabled.asState(false)
@@ -91,6 +94,13 @@ class CommonSettingsViewModel(
     val kugouClientMode = settingsPreferences.kugouClientMode.asState(KugouClientMode.LITE)
 
     fun updateWifiQuality(quality: String) = launchSave { settingsPreferences.saveWifiQuality(quality) }
+
+    fun updateDownloadQuality(quality: String) = launchSave { settingsPreferences.saveDownloadQuality(quality) }
+
+    fun updateAskDownloadQuality(ask: Boolean) = launchSave { settingsPreferences.saveAskDownloadQuality(ask) }
+
+    fun updateDownloadFallbackHighestQuality(enabled: Boolean) =
+        launchSave { settingsPreferences.saveDownloadFallbackHighestQuality(enabled) }
 
     fun updateCrossfadeEnabled(enabled: Boolean) = launchSave { settingsPreferences.saveCrossfadeEnabled(enabled) }
 

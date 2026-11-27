@@ -14,6 +14,7 @@ import com.lin0721.linmusic.core.kugou.KugouTrackLinkResolver
 import com.lin0721.linmusic.core.kugou.KugouTrackLinks
 import com.lin0721.linmusic.core.download.DownloadTrackInfo
 import com.lin0721.linmusic.core.download.SongDownloader
+import com.lin0721.linmusic.core.model.getQualityDisplayName
 import com.lin0721.linmusic.core.network.NetworkStateProvider
 import com.lin0721.linmusic.core.model.ArtistAlbum
 import com.lin0721.linmusic.core.model.ArtistDetailInfo
@@ -177,7 +178,20 @@ class PlayerViewModel(
             initialValue = "standard"
         )
 
-    // 下载当前播放歌曲
+    // 监听默认下载音质与下载前询问开关
+    val defaultDownloadQuality: StateFlow<String> = settingsPreferences.downloadQuality.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = "lossless"
+    )
+
+    val askDownloadQuality: StateFlow<Boolean> = settingsPreferences.askDownloadQuality.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = false
+    )
+
+    // 下载当前播放歌曲或播客节目
     fun downloadCurrentSong(
         songId: Long,
         songName: String,
@@ -185,7 +199,9 @@ class PlayerViewModel(
         albumName: String,
         coverUrl: String?,
         albumYear: Int,
-        level: String
+        level: String = defaultDownloadQuality.value,
+        isPodcast: Boolean = false,
+        radioId: Long = 0L
     ) {
         viewModelScope.launch {
             if (songId <= 0) {
@@ -193,9 +209,19 @@ class PlayerViewModel(
                 return@launch
             }
             songDownloadManager.enqueueSingle(
-                DownloadTrackInfo(songId, songName, artistName, albumName, coverUrl, albumYear), level
+                DownloadTrackInfo(
+                    songId = songId,
+                    songName = songName,
+                    artistName = artistName,
+                    albumName = albumName,
+                    coverUrl = coverUrl,
+                    albumYear = albumYear,
+                    isPodcast = isPodcast,
+                    radioId = radioId
+                ),
+                level
             )
-            _toastEvent.emit("已加入下载队列")
+            _toastEvent.emit("已加入下载队列（${getQualityDisplayName(level)}）")
         }
     }
 

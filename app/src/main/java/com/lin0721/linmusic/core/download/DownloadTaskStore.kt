@@ -46,6 +46,9 @@ data class DownloadTaskMeta(
     val sortOrder: Long = 0,
     // P2 跨平台歌曲标识；老数据缺失时按 songId 推导网易云 TrackId
     val trackId: TrackId? = null,
+    // 播客节目标识与所属电台 id
+    val isPodcast: Boolean = false,
+    val radioId: Long = 0L,
     // P2 酷狗补充元数据
     val kugouMeta: KugouTrackMeta? = null
 ) {
@@ -63,7 +66,9 @@ data class DownloadTaskMeta(
         coverUrl = coverUrl,
         albumYear = albumYear,
         trackId = trackId,
-        kugouMeta = kugouMeta
+        kugouMeta = kugouMeta,
+        isPodcast = isPodcast,
+        radioId = radioId
     )
 }
 

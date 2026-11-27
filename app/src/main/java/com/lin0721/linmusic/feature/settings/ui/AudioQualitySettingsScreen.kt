@@ -14,6 +14,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lin0721.linmusic.LocalBottomOverlayInset
+import com.lin0721.linmusic.core.model.DOWNLOAD_QUALITY_LEVELS
 import com.lin0721.linmusic.core.model.getQualityDisplayName
 import com.lin0721.linmusic.core.ui.components.MelodiaDragHandle
 import com.lin0721.linmusic.core.ui.theme.BottomSheetShape
@@ -27,6 +28,8 @@ import com.lin0721.linmusic.core.ui.icons.Check
 fun AudioQualitySettingsView(viewModel: SettingsViewModel) {
     val wifiQuality by viewModel.wifiQuality.collectAsStateWithLifecycle()
     val mobileQuality by viewModel.mobileQuality.collectAsStateWithLifecycle()
+    val downloadQuality by viewModel.downloadQuality.collectAsStateWithLifecycle()
+    val downloadFallbackHighestQuality by viewModel.downloadFallbackHighestQuality.collectAsStateWithLifecycle()
     val showPlaybackQuality by viewModel.showPlaybackQuality.collectAsStateWithLifecycle()
     val showPlaybackSource by viewModel.showPlaybackSource.collectAsStateWithLifecycle()
     val showSongMaxQuality by viewModel.showSongMaxQuality.collectAsStateWithLifecycle()
@@ -47,6 +50,19 @@ fun AudioQualitySettingsView(viewModel: SettingsViewModel) {
                     title = "移动网络环境播放音质",
                     subtitle = getQualityDisplayName(mobileQuality),
                     onClick = { qualityDialogTarget = "mobile" }
+                )
+                HorizontalDivider(color = MelodiaColors.Divider)
+                SettingsRow(
+                    title = "默认下载音质",
+                    subtitle = getQualityDisplayName(downloadQuality),
+                    onClick = { qualityDialogTarget = "download" }
+                )
+                HorizontalDivider(color = MelodiaColors.Divider)
+                SettingsSwitchRow(
+                    title = "无目标音质时自动下载最高可用音质",
+                    subtitle = "开启后，若媒体没有所选音质（如无损），自动向下匹配实际可用的最高音质",
+                    checked = downloadFallbackHighestQuality,
+                    onCheckedChange = { viewModel.updateDownloadFallbackHighestQuality(it) }
                 )
             }
         }
@@ -80,15 +96,27 @@ fun AudioQualitySettingsView(viewModel: SettingsViewModel) {
     // 音质单选选择弹层
     val qualityTarget = qualityDialogTarget
     if (qualityTarget != null) {
-        val qualities = listOf(
-            "standard" to "标准音质",
-            "exhigh" to "极高音质",
-            "lossless" to "无损音质 (FLAC)",
-            "hires" to "Hi-Res 无损",
-            "jymaster" to "超清母带"
-        )
-        val isWifi = qualityTarget == "wifi"
-        val activeQuality = if (isWifi) wifiQuality else mobileQuality
+        val qualities = if (qualityTarget == "download") {
+            DOWNLOAD_QUALITY_LEVELS.map { it to getQualityDisplayName(it) }
+        } else {
+            listOf(
+                "standard" to "标准音质",
+                "exhigh" to "极高音质",
+                "lossless" to "无损音质 (FLAC)",
+                "hires" to "Hi-Res 无损",
+                "jymaster" to "超清母带"
+            )
+        }
+        val activeQuality = when (qualityTarget) {
+            "wifi" -> wifiQuality
+            "download" -> downloadQuality
+            else -> mobileQuality
+        }
+        val titleText = when (qualityTarget) {
+            "wifi" -> "选择 Wi-Fi 播放音质"
+            "download" -> "选择默认下载音质"
+            else -> "选择移动网络播放音质"
+        }
         val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
         ModalBottomSheet(
@@ -105,7 +133,7 @@ fun AudioQualitySettingsView(viewModel: SettingsViewModel) {
                     .padding(start = MelodiaSpacing.lg, end = MelodiaSpacing.lg, bottom = MelodiaSpacing.lg)
             ) {
                 Text(
-                    text = if (isWifi) "选择 Wi-Fi 播放音质" else "选择移动网络播放音质",
+                    text = titleText,
                     color = MaterialTheme.colorScheme.onSurface,
                     fontSize = 20.sp,
                     fontWeight = FontWeight.ExtraBold,
@@ -118,10 +146,10 @@ fun AudioQualitySettingsView(viewModel: SettingsViewModel) {
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable {
-                                if (isWifi) {
-                                    viewModel.updateWifiQuality(key)
-                                } else {
-                                    viewModel.updateMobileQuality(key)
+                                when (qualityTarget) {
+                                    "wifi" -> viewModel.updateWifiQuality(key)
+                                    "download" -> viewModel.updateDownloadQuality(key)
+                                    else -> viewModel.updateMobileQuality(key)
                                 }
                                 qualityDialogTarget = null
                             }

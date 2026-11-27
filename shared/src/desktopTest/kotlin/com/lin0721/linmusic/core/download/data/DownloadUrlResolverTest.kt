@@ -3,7 +3,9 @@ package com.lin0721.linmusic.core.download.data
 import com.lin0721.linmusic.core.download.DownloadRecord
 import com.lin0721.linmusic.core.platform.KugouTrackMeta
 import com.lin0721.linmusic.core.platform.TrackId
+import com.lin0721.linmusic.core.player.data.FreeTrialInfo
 import com.lin0721.linmusic.core.player.data.SongPlaybackInfo
+import com.lin0721.linmusic.core.player.data.SongUrlItem
 import com.lin0721.linmusic.core.plugin.PluginDownloadLink
 import com.lin0721.linmusic.core.plugin.PluginTrackQuery
 import com.lin0721.linmusic.core.source.MusicPlatform
@@ -241,5 +243,137 @@ class DownloadUrlResolverTest {
         )
         assertEquals("该平台总开关已关闭", rejected(resolverNoFallback.resolvePlatform(kugouTrack, "exhigh", kugouQuery)))
         assertEquals(0, platformCalls)
+    }
+
+    @Test
+    fun `官方下载链接缺失时可通过播放器直链兜底且跳过试听片段`() = runBlocking {
+        val fallbackResolver = DownloadUrlResolver(
+            official = { _, _ -> SongDownloadUrlResponse(code = -1) },
+            fallbackEnabled = { false },
+            playerUrlFallback = { _, _ ->
+                SongUrlItem(
+                    id = 1L,
+                    url = "https://cdn.example.com/podcast.mp3",
+                    size = 8192L,
+                    type = "mp3",
+                    level = "exhigh",
+                    freeTrialInfo = null
+                )
+            }
+        )
+        val outcome = ready(fallbackResolver.resolve(1L, "exhigh", query, preferPlayerFallback = true))
+        assertEquals("https://cdn.example.com/podcast.mp3", outcome.url)
+        assertEquals("mp3", outcome.encodeType)
+        assertFalse(outcome.fromPlugin)
+
+        val trialFallback = DownloadUrlResolver(
+            official = { _, _ -> SongDownloadUrlResponse(code = -1) },
+            fallbackEnabled = { false },
+            playerUrlFallback = { _, _ ->
+                SongUrlItem(
+                    id = 1L,
+                    url = "https://cdn.example.com/trial.mp3",
+                    freeTrialInfo = FreeTrialInfo(0, 30)
+                )
+            }
+        )
+        assertEquals("获取下载链接失败", rejected(trialFallback.resolve(1L, "exhigh", query, preferPlayerFallback = true)))
+    }
+
+    @Test
+    fun `播客请求无损但媒体无无损时向下匹配实际可用最高音质`() = runBlocking {
+        // 场景1：请求无损，接口与播放兜底在 lossless 无直链、exhigh 有 320k MP3、standard 有 128k MP3
+        val cascadeResolver = DownloadUrlResolver(
+            official = { _, level ->
+                when (level) {
+                    "exhigh" -> SongDownloadUrlResponse(200, SongDownloadUrlItem(url = "https://cdn.example.com/320.mp3", size = 4096, level = "exhigh", encodeType = "mp3"))
+                    "standard" -> SongDownloadUrlResponse(200, SongDownloadUrlItem(url = "https://cdn.example.com/128.mp3", size = 1024, level = "standard", encodeType = "mp3"))
+                    else -> SongDownloadUrlResponse(code = -1)
+                }
+            },
+            fallbackEnabled = { false },
+            playerUrlFallback = { _, _ -> null },
+            downgradeFallbackEnabled = { true }
+        )
+        val picked = ready(cascadeResolver.resolve(1L, "lossless", query, preferPlayerFallback = true))
+        assertEquals("https://cdn.example.com/320.mp3", picked.url)
+        assertEquals("exhigh", picked.level)
+        assertEquals("mp3", picked.encodeType)
+
+        // 场景2：请求无损时官方静默返回降级压缩格式，播放兜底允许接收并保留最高音质而不报错拒绝
+        val downgradedResolver = DownloadUrlResolver(
+            official = { _, _ ->
+                SongDownloadUrlResponse(200, SongDownloadUrlItem(url = "https://cdn.example.com/downgraded.mp3", size = 2048, level = "standard", encodeType = "mp3"))
+            },
+            fallbackEnabled = { false },
+            playerUrlFallback = { _, level ->
+                if (level == "exhigh") {
+                    SongUrlItem(id = 1L, url = "https://cdn.example.com/player-exhigh.mp3", size = 5120, type = "mp3", level = "exhigh")
+                } else {
+                    null
+                }
+            },
+            downgradeFallbackEnabled = { true }
+        )
+        val upgraded = ready(downgradedResolver.resolve(1L, "lossless", query, preferPlayerFallback = true))
+        assertEquals("https://cdn.example.com/player-exhigh.mp3", upgraded.url)
+        assertEquals("exhigh", upgraded.level)
+    }
+
+    @Test
+    fun `普通歌曲开启降级开关时无无损会自动下载可用的最高音质且优先于低音质插件`() = runBlocking {
+        // 1) 官方 lossless 不可用，exhigh 可用，插件即使开启但只有 standard -> 取官方 exhigh
+        val resolver = DownloadUrlResolver(
+            official = { _, level ->
+                when (level) {
+                    "exhigh" -> SongDownloadUrlResponse(200, SongDownloadUrlItem(url = "https://music.126.net/320.mp3", size = 4096, level = "exhigh", encodeType = "mp3"))
+                    "standard" -> SongDownloadUrlResponse(200, SongDownloadUrlItem(url = "https://music.126.net/128.mp3", size = 1024, level = "standard", encodeType = "mp3"))
+                    else -> SongDownloadUrlResponse(code = -1)
+                }
+            },
+            fallbackEnabled = { true },
+            plugins = { _, _ -> link(url = "https://cdn.example.com/plugin-128.mp3", quality = "standard") },
+            downgradeFallbackEnabled = { true }
+        )
+        val result = ready(resolver.resolve(1L, "lossless", query))
+        assertFalse(result.fromPlugin)
+        assertEquals("exhigh", result.level)
+        assertEquals("https://music.126.net/320.mp3", result.url)
+
+        // 2) 插件若有真正无损且官方最高只有 exhigh -> 仍优先使用插件无损
+        val pluginLosslessResolver = DownloadUrlResolver(
+            official = { _, level ->
+                if (level == "exhigh") SongDownloadUrlResponse(200, SongDownloadUrlItem(url = "https://music.126.net/320.mp3", size = 4096, level = "exhigh", encodeType = "mp3"))
+                else SongDownloadUrlResponse(code = -1)
+            },
+            fallbackEnabled = { true },
+            plugins = { _, _ -> link(url = "https://cdn.example.com/plugin.flac", quality = "lossless") },
+            downgradeFallbackEnabled = { true }
+        )
+        val pluginPicked = ready(pluginLosslessResolver.resolve(1L, "lossless", query))
+        assertTrue(pluginPicked.fromPlugin)
+        assertEquals("lossless", pluginPicked.level)
+    }
+
+    @Test
+    fun `跨平台曲目开启降级开关时无无损自动向下匹配可用最高音质`() = runBlocking {
+        val kugouTrack = TrackId.kugou("aabbccdd")
+        val kugouQuery = PluginTrackQuery("aabbccdd", "酷狗歌", "歌手", "专辑", 200_000, MusicPlatform.KUGOU)
+        val resolver = DownloadUrlResolver(
+            official = { _, _ -> SongDownloadUrlResponse(code = -1) },
+            fallbackEnabled = { false },
+            platformResolver = { _, level, _, _ ->
+                when (level) {
+                    "exhigh" -> SongPlaybackInfo(url = "https://trackercdn.kugou.com/320.mp3", level = "exhigh", isFreeTrial = false)
+                    "standard" -> SongPlaybackInfo(url = "https://trackercdn.kugou.com/128.mp3", level = "standard", isFreeTrial = false)
+                    else -> null
+                }
+            },
+            downgradeFallbackEnabled = { true }
+        )
+        val picked = ready(resolver.resolvePlatform(kugouTrack, "lossless", kugouQuery))
+        assertEquals("https://trackercdn.kugou.com/320.mp3", picked.url)
+        assertEquals("exhigh", picked.level)
+        assertEquals("mp3", picked.encodeType)
     }
 }

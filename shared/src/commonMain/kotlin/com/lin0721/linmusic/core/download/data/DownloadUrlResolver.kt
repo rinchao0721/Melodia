@@ -2,10 +2,14 @@ package com.lin0721.linmusic.core.download.data
 
 import com.lin0721.linmusic.core.download.DownloadRecord
 import com.lin0721.linmusic.core.log.AppLogger
+import com.lin0721.linmusic.core.model.DOWNLOAD_QUALITY_LEVELS
 import com.lin0721.linmusic.core.model.qualityRank
 import com.lin0721.linmusic.core.platform.KugouTrackMeta
 import com.lin0721.linmusic.core.platform.TrackId
+import com.lin0721.linmusic.core.platform.UnifiedAudioQuality
 import com.lin0721.linmusic.core.player.data.SongPlaybackInfo
+import com.lin0721.linmusic.core.player.data.SongUrlItem
+import com.lin0721.linmusic.core.player.data.isTrialAudio
 import com.lin0721.linmusic.core.plugin.PluginDownloadLink
 import com.lin0721.linmusic.core.plugin.PluginTrackQuery
 import com.lin0721.linmusic.core.source.MusicPlatform
@@ -57,10 +61,22 @@ class DownloadUrlResolver(
     private val fallbackEnabled: suspend () -> Boolean = { false },
     private val plugins: suspend (query: PluginTrackQuery, level: String) -> PluginDownloadLink? = { _, _ -> null },
     private val platformResolver: (suspend (trackId: TrackId, level: String, kugouMeta: KugouTrackMeta?, query: PluginTrackQuery) -> SongPlaybackInfo?)? = null,
-    private val isPlatformEnabled: suspend (MusicPlatform) -> Boolean = { true }
+    private val isPlatformEnabled: suspend (MusicPlatform) -> Boolean = { true },
+    // 部分声音/播客节目的 mainSong 在 download/url/v1 无直链，可回退到 player/url/v1
+    private val playerUrlFallback: (suspend (songId: Long, level: String) -> SongUrlItem?)? = null,
+    // 所选音质不可用时是否自动向下匹配实际可用的最高音质
+    private val downgradeFallbackEnabled: suspend () -> Boolean = { false }
 ) {
 
-    suspend fun resolve(songId: Long, level: String, query: PluginTrackQuery): DownloadUrlOutcome {
+    suspend fun resolve(
+        songId: Long,
+        level: String,
+        query: PluginTrackQuery,
+        preferPlayerFallback: Boolean = false
+    ): DownloadUrlOutcome {
+        if (downgradeFallbackEnabled()) {
+            return resolveWithHighestAvailableFallback(songId, level, query)
+        }
         val response = official(songId, level)
         val item = response.data
         val url = item?.url
@@ -79,8 +95,140 @@ class DownloadUrlResolver(
                 }
             }
         }
+        if (reason == NO_URL || preferPlayerFallback) {
+            resolveFromPlayerFallback(songId, level)?.let { return DownloadUrlOutcome.Ready(it) }
+        }
         AppLogger.w(TAG, "官方下载链接不可用 songId=$songId level=$level code=${response.code}: $reason")
         return resolveFromPlugins(reason, level, query, logKey = "songId=$songId")
+    }
+
+    // 当所选高音质在此媒体不可用时，允许向下匹配该媒体实际可用的最高音质（仍跳过试听片段）
+    private suspend fun resolveWithHighestAvailableFallback(
+        songId: Long,
+        requestedLevel: String,
+        query: PluginTrackQuery
+    ): DownloadUrlOutcome {
+        val (initialDownload, initialReason) = tryDirectTier(songId, requestedLevel, allowCompressedDowngrade = true)
+        var best = initialDownload
+        var lastReason = initialReason
+
+        val requestedRank = qualityRank(requestedLevel)
+        if (requestedRank > 0) {
+            val currentRank = best?.let { qualityRank(it.level) } ?: -1
+            for (rank in (requestedRank - 1) downTo (currentRank + 1)) {
+                val candidateLevel = DOWNLOAD_QUALITY_LEVELS[rank]
+                val (candidate, reason) = tryDirectTier(songId, candidateLevel, allowCompressedDowngrade = true)
+                if (candidate != null) {
+                    val candidateRank = qualityRank(candidate.level)
+                    if (best == null || candidateRank > qualityRank(best.level)) {
+                        best = candidate
+                    }
+                    // 已拿到的音质不低于当前尝试档位，无需继续向下试探
+                    if (candidateRank >= rank) break
+                } else if (lastReason == NO_URL && reason != NO_URL) {
+                    lastReason = reason
+                }
+            }
+        }
+
+        if (best != null && (requestedRank < 0 || qualityRank(best.level) >= requestedRank)) {
+            return DownloadUrlOutcome.Ready(best)
+        }
+        if (fallbackEnabled()) {
+            val pluginDownload = resolvePluginCandidate(requestedLevel, query, logKey = "songId=$songId")
+            if (pluginDownload != null && (best == null || qualityRank(pluginDownload.level) > qualityRank(best.level))) {
+                return DownloadUrlOutcome.Ready(pluginDownload)
+            }
+        }
+        best?.let { return DownloadUrlOutcome.Ready(it) }
+        AppLogger.w(TAG, "全音质匹配失败 songId=$songId requested=$requestedLevel: $lastReason")
+        return DownloadUrlOutcome.Rejected(lastReason)
+    }
+
+    private suspend fun tryDirectTier(
+        songId: Long,
+        level: String,
+        allowCompressedDowngrade: Boolean
+    ): Pair<ResolvedDownload?, String> {
+        val response = runCatching { official(songId, level) }.getOrNull()
+        val item = response?.data
+        val url = item?.url
+        var officialDownload: ResolvedDownload? = null
+        val reason = when {
+            response == null || !response.isSuccess || item == null || url.isNullOrBlank() -> NO_URL
+            item.isTrialAudio -> TRIAL_ONLY
+            else -> {
+                val encodeType = (item.type ?: item.encodeType)?.lowercase()
+                val rawLevel = item.level?.lowercase()?.takeIf { qualityRank(it) >= 0 }
+                val effectiveLevel = rawLevel ?: if (encodeType in COMPRESSED_ENCODE_TYPES && level in LOSSLESS_AND_ABOVE) {
+                    "exhigh"
+                } else {
+                    level
+                }
+                if (!allowCompressedDowngrade && level in LOSSLESS_AND_ABOVE && encodeType in COMPRESSED_ENCODE_TYPES) {
+                    NEED_HIGHER_PLAN
+                } else {
+                    officialDownload = ResolvedDownload(
+                        url = url,
+                        encodeType = encodeType ?: if (effectiveLevel in LOSSLESS_AND_ABOVE) "flac" else "mp3",
+                        size = item.size,
+                        level = effectiveLevel,
+                        headers = emptyMap(),
+                        fromPlugin = false
+                    )
+                    ""
+                }
+            }
+        }
+
+        val needsPlayerCheck = officialDownload == null ||
+            (allowCompressedDowngrade && qualityRank(officialDownload.level) < qualityRank(level))
+        val playerDownload = if (needsPlayerCheck) {
+            resolveFromPlayerFallback(songId, level, allowCompressedDowngrade = allowCompressedDowngrade)
+        } else {
+            null
+        }
+
+        val best = listOfNotNull(officialDownload, playerDownload)
+            .maxByOrNull { qualityRank(it.level) }
+        return best to (if (best != null) "" else reason)
+    }
+
+    private suspend fun resolveFromPlayerFallback(
+        songId: Long,
+        level: String,
+        allowCompressedDowngrade: Boolean = false
+    ): ResolvedDownload? {
+        val resolver = playerUrlFallback ?: return null
+        val playItem = try {
+            resolver(songId, level)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            AppLogger.w(TAG, "播放直链兜底查询失败 songId=$songId", e)
+            null
+        } ?: return null
+        val playUrl = playItem.url?.takeIf { it.isNotBlank() && it.toHttpUrlOrNull() != null } ?: return null
+        if (playItem.isTrialAudio) return null
+        val rawLevel = playItem.level?.lowercase()?.takeIf { qualityRank(it) >= 0 }
+        val encodeType = playItem.type?.lowercase()?.takeIf { it in FILE_TYPES }
+            ?: inferEncodeTypeFromUrl(playUrl, rawLevel ?: level)
+        if (!allowCompressedDowngrade && level in LOSSLESS_AND_ABOVE && encodeType in COMPRESSED_ENCODE_TYPES) {
+            return null
+        }
+        val resolvedLevel = rawLevel ?: if (encodeType in COMPRESSED_ENCODE_TYPES && level in LOSSLESS_AND_ABOVE) {
+            "exhigh"
+        } else {
+            level
+        }
+        return ResolvedDownload(
+            url = playUrl,
+            encodeType = encodeType,
+            size = playItem.size,
+            level = resolvedLevel,
+            headers = emptyMap(),
+            fromPlugin = false
+        )
     }
 
     // 跨平台下载直链解析：网易云走官方下载接口；其余平台先查官方播放/下载链路，试听、关闭或失败时按设置走插件换源
@@ -102,6 +250,51 @@ class DownloadUrlResolver(
             return resolveFromPlugins(PLATFORM_DISABLED, level, query, logKey = "trackId=$trackId")
         }
 
+        val allowDowngrade = downgradeFallbackEnabled()
+        var (best, lastReason) = resolvePlatformDirectCandidate(trackId, level, kugouMeta, query)
+        val requestedRank = qualityRank(level)
+
+        if (allowDowngrade && requestedRank > 0 && (best == null || qualityRank(best.level) < requestedRank)) {
+            val triedPlatformQualities = mutableSetOf<UnifiedAudioQuality?>()
+            triedPlatformQualities += UnifiedAudioQuality.fromCode(level, trackId.platform)
+            val currentRank = best?.let { qualityRank(it.level) } ?: -1
+            for (rank in (requestedRank - 1) downTo (currentRank + 1)) {
+                val candidateLevel = DOWNLOAD_QUALITY_LEVELS[rank]
+                val mappedQuality = UnifiedAudioQuality.fromCode(candidateLevel, trackId.platform)
+                if (!triedPlatformQualities.add(mappedQuality)) continue
+                val (candidate, reason) = resolvePlatformDirectCandidate(trackId, candidateLevel, kugouMeta, query)
+                if (candidate != null) {
+                    val candidateRank = qualityRank(candidate.level)
+                    if (best == null || candidateRank > qualityRank(best.level)) {
+                        best = candidate
+                    }
+                    if (candidateRank >= rank) break
+                } else if (lastReason == NO_URL && reason != NO_URL) {
+                    lastReason = reason
+                }
+            }
+        }
+
+        if (best != null && (!allowDowngrade || requestedRank < 0 || qualityRank(best.level) >= requestedRank)) {
+            return DownloadUrlOutcome.Ready(best)
+        }
+        if (fallbackEnabled()) {
+            val pluginDownload = resolvePluginCandidate(level, query, logKey = "trackId=$trackId")
+            if (pluginDownload != null && (best == null || qualityRank(pluginDownload.level) > qualityRank(best.level))) {
+                return DownloadUrlOutcome.Ready(pluginDownload)
+            }
+        }
+        best?.let { return DownloadUrlOutcome.Ready(it) }
+        AppLogger.w(TAG, "跨平台官方链接不可用 trackId=$trackId level=$level: $lastReason")
+        return DownloadUrlOutcome.Rejected(lastReason)
+    }
+
+    private suspend fun resolvePlatformDirectCandidate(
+        trackId: TrackId,
+        level: String,
+        kugouMeta: KugouTrackMeta?,
+        query: PluginTrackQuery
+    ): Pair<ResolvedDownload?, String> {
         val officialInfo = try {
             platformResolver?.invoke(trackId, level, kugouMeta, query)
         } catch (e: CancellationException) {
@@ -115,21 +308,17 @@ class DownloadUrlResolver(
         if (officialInfo != null && officialUrl != null && !officialInfo.isFreeTrial) {
             val resolvedLevel = officialInfo.level?.lowercase()?.takeIf { qualityRank(it) >= 0 } ?: level
             val encodeType = inferEncodeTypeFromUrl(officialUrl, resolvedLevel)
-            return DownloadUrlOutcome.Ready(
-                ResolvedDownload(
-                    url = officialUrl,
-                    encodeType = encodeType,
-                    size = 0L,
-                    level = resolvedLevel,
-                    headers = emptyMap(),
-                    fromPlugin = false
-                )
-            )
+            return ResolvedDownload(
+                url = officialUrl,
+                encodeType = encodeType,
+                size = 0L,
+                level = resolvedLevel,
+                headers = emptyMap(),
+                fromPlugin = false
+            ) to ""
         }
-
         val reason = if (officialInfo?.isFreeTrial == true) TRIAL_ONLY else NO_URL
-        AppLogger.w(TAG, "跨平台官方链接不可用 trackId=$trackId level=$level: $reason")
-        return resolveFromPlugins(reason, level, query, logKey = "trackId=$trackId")
+        return null to reason
     }
 
     private suspend fun resolveFromPlugins(
@@ -139,6 +328,15 @@ class DownloadUrlResolver(
         logKey: String
     ): DownloadUrlOutcome {
         if (!fallbackEnabled()) return DownloadUrlOutcome.Rejected(reason)
+        return resolvePluginCandidate(level, query, logKey)?.let { DownloadUrlOutcome.Ready(it) }
+            ?: DownloadUrlOutcome.Rejected(reason)
+    }
+
+    private suspend fun resolvePluginCandidate(
+        level: String,
+        query: PluginTrackQuery,
+        logKey: String
+    ): ResolvedDownload? {
         val link = try {
             plugins(query, level)
         } catch (e: CancellationException) {
@@ -146,16 +344,14 @@ class DownloadUrlResolver(
         } catch (e: Exception) {
             AppLogger.w(TAG, "插件下载源出错 $logKey", e)
             null
-        }?.takeIf { it.url.toHttpUrlOrNull() != null } ?: return DownloadUrlOutcome.Rejected(reason)
-        return DownloadUrlOutcome.Ready(
-            ResolvedDownload(
-                url = link.url,
-                encodeType = fileType(link),
-                size = 0,
-                level = link.quality?.lowercase()?.takeIf { qualityRank(it) >= 0 } ?: UNKNOWN_PLUGIN_LEVEL,
-                headers = sanitizeHeaders(link.headers),
-                fromPlugin = true
-            )
+        }?.takeIf { it.url.toHttpUrlOrNull() != null } ?: return null
+        return ResolvedDownload(
+            url = link.url,
+            encodeType = fileType(link),
+            size = 0,
+            level = link.quality?.lowercase()?.takeIf { qualityRank(it) >= 0 } ?: UNKNOWN_PLUGIN_LEVEL,
+            headers = sanitizeHeaders(link.headers),
+            fromPlugin = true
         )
     }
 

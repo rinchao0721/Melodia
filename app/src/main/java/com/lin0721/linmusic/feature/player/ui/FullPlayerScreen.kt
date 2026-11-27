@@ -269,6 +269,8 @@ private fun FullPlayerScreenContent(
     val sleepTimerRemaining by viewModel.sleepTimerRemaining.collectAsStateWithLifecycle()
     val commentsState by viewModel.commentsState.collectAsStateWithLifecycle()
     val activeQuality by viewModel.activeQuality.collectAsStateWithLifecycle()
+    val defaultDownloadQuality by viewModel.defaultDownloadQuality.collectAsStateWithLifecycle()
+    val askDownloadQuality by viewModel.askDownloadQuality.collectAsStateWithLifecycle()
     val collectState by viewModel.collectState.collectAsStateWithLifecycle()
     val playMode by viewModel.playerManager.playMode.collectAsStateWithLifecycle()
     val queue by viewModel.playerManager.queue.collectAsStateWithLifecycle()
@@ -1332,6 +1334,8 @@ private fun FullPlayerScreenContent(
             coverUrl = coverUrl,
             sleepTimerRemaining = sleepTimerRemaining,
             activeQuality = activeQuality,
+            defaultDownloadQuality = defaultDownloadQuality,
+            askDownloadQuality = askDownloadQuality,
             showMiniLyric = showMiniLyric,
             isPodcast = podcast.isPodcast,
             personalFmMode = personalFmMode,
@@ -1401,6 +1405,27 @@ private fun FullPlayerScreenContent(
             },
             onShareClick = { shareCurrentSong() },
             onDownloadClick = { showDownloadQualitySheet = true },
+            onDefaultDownloadClick = {
+                val songId = currentTrack.mediaId.toLongOrNull() ?: 0L
+                val artistNames = if (podcast.isPodcast) {
+                    artist
+                } else {
+                    songDetail?.ar?.joinToString("/") { it.name }?.takeIf { it.isNotBlank() } ?: artist
+                }
+                val albumName = if (podcast.isPodcast) podcast.radioName else (songDetail?.al?.name ?: "")
+                val albumYear = com.lin0721.linmusic.core.download.yearFromEpochMillis(songDetail?.publishTime ?: 0)
+                viewModel.downloadCurrentSong(
+                    songId = songId,
+                    songName = title,
+                    artistName = artistNames,
+                    albumName = albumName,
+                    coverUrl = coverUrl,
+                    albumYear = albumYear,
+                    level = defaultDownloadQuality,
+                    isPodcast = podcast.isPodcast,
+                    radioId = podcast.radioId
+                )
+            },
             onSaveCollection = { songId, items -> viewModel.savePlaylistCollection(songId, items, silent = true) },
             onSaveNewCollection = { name, songId -> viewModel.createPlaylistAndAddSong(name, songId) },
             onCollectDismiss = { collectSongId = null },
@@ -1496,10 +1521,24 @@ private fun FullPlayerScreenContent(
                 maxDownloadLevel = songDetail?.privilege?.dlLevel,
                 onQualitySelected = { level ->
                     val songId = currentTrack.mediaId.toLongOrNull() ?: 0L
-                    val artistNames = songDetail?.ar?.joinToString("/") { it.name }?.takeIf { it.isNotBlank() } ?: artist
-                    val albumName = songDetail?.al?.name ?: ""
+                    val artistNames = if (podcast.isPodcast) {
+                        artist
+                    } else {
+                        songDetail?.ar?.joinToString("/") { it.name }?.takeIf { it.isNotBlank() } ?: artist
+                    }
+                    val albumName = if (podcast.isPodcast) podcast.radioName else (songDetail?.al?.name ?: "")
                     val albumYear = com.lin0721.linmusic.core.download.yearFromEpochMillis(songDetail?.publishTime ?: 0)
-                    viewModel.downloadCurrentSong(songId, title, artistNames, albumName, coverUrl, albumYear, level)
+                    viewModel.downloadCurrentSong(
+                        songId = songId,
+                        songName = title,
+                        artistName = artistNames,
+                        albumName = albumName,
+                        coverUrl = coverUrl,
+                        albumYear = albumYear,
+                        level = level,
+                        isPodcast = podcast.isPodcast,
+                        radioId = podcast.radioId
+                    )
                     showDownloadQualitySheet = false
                 },
                 onDismiss = { showDownloadQualitySheet = false },

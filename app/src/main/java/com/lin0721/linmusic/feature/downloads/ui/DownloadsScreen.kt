@@ -261,6 +261,16 @@ private fun DownloadedSongRow(record: DownloadRecord, onClick: () -> Unit, onDel
             )
             Spacer(Modifier.height(3.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
+                if (record.isPodcast) {
+                    Box(
+                        modifier = Modifier
+                            .padding(end = 6.dp)
+                            .border(1.dp, MelodiaColors.Accent, RoundedCornerShape(4.dp))
+                            .padding(horizontal = 4.dp)
+                    ) {
+                        Text(text = "播客", color = MelodiaColors.AccentText, fontSize = 10.sp, maxLines = 1)
+                    }
+                }
                 Box(
                     modifier = Modifier
                         .border(1.dp, MutedText, RoundedCornerShape(4.dp))

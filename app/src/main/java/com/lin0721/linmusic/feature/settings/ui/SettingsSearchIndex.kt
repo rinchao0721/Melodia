@@ -35,6 +35,8 @@ object SettingsSearchIndex {
 
             entry(QUALITY_SOURCES, 0, "Wi-Fi 环境播放音质", "wifi 无线 码率"),
             entry(QUALITY_SOURCES, 0, "移动网络环境播放音质", "流量 蜂窝 码率"),
+            entry(QUALITY_SOURCES, 0, "默认下载音质", "下载 音质 播客 无损 极高"),
+            entry(QUALITY_SOURCES, 0, "无目标音质时自动下载最高可用音质", "下载 音质 无损 降级 自动 最高音质 回退 播客"),
             entry(QUALITY_SOURCES, 1, "显示实际音质", "播放页 全屏"),
             entry(QUALITY_SOURCES, 1, "显示歌曲最高音质", "徽标 列表 无损 Hi-Res 母带"),
             entry(QUALITY_SOURCES, 2, "多平台聚合搜索", "酷狗 酷我 QQ 音乐"),
@@ -49,6 +51,7 @@ object SettingsSearchIndex {
             entry(DOWNLOAD_STORAGE, 0, "识别已下载歌曲", "扫描 本地 重装 已有文件 重复下载"),
             entry(DOWNLOAD_STORAGE, 0, "旧 ID 模糊匹配", "识别 已下载 旧版本 歌曲 ID 标签 模糊"),
             entry(DOWNLOAD_STORAGE, 0, "内嵌歌词", "歌词 写入 音频文件"),
+            entry(DOWNLOAD_STORAGE, 0, "下载前询问音质", "下载 音质 询问 弹窗 默认"),
             entry(DOWNLOAD_STORAGE, 1, "清理缓存", "存储 空间 音频缓存 图片缓存 日志 临时文件 更新安装包 最大缓存"),
 
             entry(NETWORK, 0, "仅 Wi-Fi 网络下联网播放", "流量 移动网络"),

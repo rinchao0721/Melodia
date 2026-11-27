@@ -126,6 +126,9 @@ class SettingsViewModel(
     val showSongMaxQuality = settingsPreferences.showSongMaxQuality.asState(false)
 
     val mobileQuality = settingsPreferences.mobileQuality.asState("standard")
+    val downloadQuality = settingsPreferences.downloadQuality.asState("lossless")
+    val askDownloadQuality = settingsPreferences.askDownloadQuality.asState(false)
+    val downloadFallbackHighestQuality = settingsPreferences.downloadFallbackHighestQuality.asState(true)
 
     val useRealIp = settingsPreferences.useRealIp.asState(false)
 
@@ -413,6 +416,10 @@ class SettingsViewModel(
     fun updateShowSongMaxQuality(show: Boolean) = launchSave { settingsPreferences.saveShowSongMaxQuality(show) }
 
     fun updateMobileQuality(quality: String) = launchSave { settingsPreferences.saveMobileQuality(quality) }
+    fun updateDownloadQuality(quality: String) = launchSave { settingsPreferences.saveDownloadQuality(quality) }
+    fun updateAskDownloadQuality(ask: Boolean) = launchSave { settingsPreferences.saveAskDownloadQuality(ask) }
+    fun updateDownloadFallbackHighestQuality(enabled: Boolean) =
+        launchSave { settingsPreferences.saveDownloadFallbackHighestQuality(enabled) }
 
     fun updateUseRealIp(enabled: Boolean) = launchSave { settingsPreferences.saveUseRealIp(enabled) }
 

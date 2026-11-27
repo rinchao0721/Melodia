@@ -19,7 +19,9 @@ data class DownloadTrackInfo(
     // 0 表示未知，仅用于识别本地已有文件
     val durationMs: Long = 0,
     val trackId: TrackId? = null,
-    val kugouMeta: KugouTrackMeta? = null
+    val kugouMeta: KugouTrackMeta? = null,
+    val isPodcast: Boolean = false,
+    val radioId: Long = 0L
 ) {
     val effectiveTrackId: TrackId
         get() = trackId ?: TrackId.netease(songId.coerceAtLeast(0L))
@@ -68,15 +70,15 @@ data class BatchEnqueueResult(
 )
 
 // 批量下载入队结果提示文案
-fun BatchEnqueueResult.toToastMessage(): String {
+fun BatchEnqueueResult.toToastMessage(unit: String = "首", noun: String = "歌曲"): String {
     val notes = buildList {
-        if (skippedCount > 0) add("跳过 $skippedCount 首已下载")
-        if (queuedCount > 0) add("$queuedCount 首已在队列中")
+        if (skippedCount > 0) add("跳过 $skippedCount ${unit}已下载")
+        if (queuedCount > 0) add("$queuedCount ${unit}已在队列中")
     }.joinToString("，")
     return when {
-        enqueuedCount == 0 && notes.isNotEmpty() -> "没有需要下载的歌曲：$notes"
-        notes.isNotEmpty() -> "已将 $enqueuedCount 首歌曲加入下载队列，$notes"
-        else -> "已将 $enqueuedCount 首歌曲加入下载队列"
+        enqueuedCount == 0 && notes.isNotEmpty() -> "没有需要下载的$noun：$notes"
+        notes.isNotEmpty() -> "已将 $enqueuedCount $unit${noun}加入下载队列，$notes"
+        else -> "已将 $enqueuedCount $unit${noun}加入下载队列"
     }
 }
 

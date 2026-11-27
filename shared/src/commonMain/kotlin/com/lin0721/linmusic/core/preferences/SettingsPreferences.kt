@@ -58,6 +58,12 @@ class SettingsPreferences(
         private val KEY_WIFI_QUALITY = stringPreferencesKey("wifi_quality")
         // 移动网络播放音质 KEY，默认 "standard"
         private val KEY_MOBILE_QUALITY = stringPreferencesKey("mobile_quality")
+        // 默认下载音质 KEY，默认 "lossless"
+        private val KEY_DOWNLOAD_QUALITY = stringPreferencesKey("download_quality")
+        // 下载前是否每次弹出音质选择，默认 false（直接按默认下载音质入队）
+        private val KEY_ASK_DOWNLOAD_QUALITY = booleanPreferencesKey("ask_download_quality")
+        // 所选下载音质不可用时，是否自动匹配可用最高音质下载，默认 true
+        private val KEY_DOWNLOAD_FALLBACK_HIGHEST_QUALITY = booleanPreferencesKey("download_fallback_highest_quality")
         // 新建歌单是否默认设为隐私模式
         private val KEY_DEFAULT_PLAYLIST_PRIVATE = booleanPreferencesKey("default_playlist_private")
         // 默认搜索源
@@ -272,6 +278,39 @@ class SettingsPreferences(
     suspend fun saveMobileQuality(quality: String) {
         dataStore.edit { prefs ->
             prefs[KEY_MOBILE_QUALITY] = quality
+        }
+    }
+
+    // 默认下载音质设置 Flow
+    val downloadQuality: Flow<String> = dataStore.data.map { prefs ->
+        prefs[KEY_DOWNLOAD_QUALITY] ?: "lossless"
+    }.distinctUntilChanged()
+
+    suspend fun saveDownloadQuality(quality: String) {
+        dataStore.edit { prefs ->
+            prefs[KEY_DOWNLOAD_QUALITY] = quality
+        }
+    }
+
+    // 是否每次下载前弹窗询问音质（关闭时直接按默认下载音质入队）
+    val askDownloadQuality: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[KEY_ASK_DOWNLOAD_QUALITY] ?: false
+    }.distinctUntilChanged()
+
+    suspend fun saveAskDownloadQuality(ask: Boolean) {
+        dataStore.edit { prefs ->
+            prefs[KEY_ASK_DOWNLOAD_QUALITY] = ask
+        }
+    }
+
+    // 所选下载音质（如无损）在当前媒体不可用时，自动匹配实际可用的最高音质下载
+    val downloadFallbackHighestQuality: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[KEY_DOWNLOAD_FALLBACK_HIGHEST_QUALITY] ?: true
+    }.distinctUntilChanged()
+
+    suspend fun saveDownloadFallbackHighestQuality(enabled: Boolean) {
+        dataStore.edit { prefs ->
+            prefs[KEY_DOWNLOAD_FALLBACK_HIGHEST_QUALITY] = enabled
         }
     }
 

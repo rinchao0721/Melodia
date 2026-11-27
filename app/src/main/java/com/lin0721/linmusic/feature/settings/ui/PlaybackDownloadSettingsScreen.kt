@@ -391,6 +391,7 @@ fun DownloadSettingsView(viewModel: SettingsViewModel) {
     val downloadFolderUri by viewModel.downloadFolderUri.collectAsStateWithLifecycle()
     val downloadLyricsEnabled by viewModel.downloadLyricsEnabled.collectAsStateWithLifecycle()
     val downloadFuzzyLegacyId by viewModel.downloadFuzzyLegacyId.collectAsStateWithLifecycle()
+    val askDownloadQuality by viewModel.askDownloadQuality.collectAsStateWithLifecycle()
     val folderScanner: DownloadFolderScanner = koinInject()
     val scanning by folderScanner.scanning.collectAsStateWithLifecycle()
 
@@ -465,6 +466,13 @@ fun DownloadSettingsView(viewModel: SettingsViewModel) {
                     subtitle = "下载歌曲与边听边存时将逐字歌词内嵌写入音频文件",
                     checked = downloadLyricsEnabled,
                     onCheckedChange = { viewModel.updateDownloadLyricsEnabled(it) }
+                )
+                HorizontalDivider(color = MelodiaColors.Divider)
+                SettingsSwitchRow(
+                    title = "下载前询问音质",
+                    subtitle = "开启后点击下载时弹出音质选择；关闭则直接使用默认下载音质",
+                    checked = askDownloadQuality,
+                    onCheckedChange = { viewModel.updateAskDownloadQuality(it) }
                 )
                 if (!downloadFolderUri.isNullOrBlank()) {
                     HorizontalDivider(color = MelodiaColors.Divider)

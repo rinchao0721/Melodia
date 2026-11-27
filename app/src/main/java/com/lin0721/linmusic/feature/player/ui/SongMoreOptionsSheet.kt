@@ -1,9 +1,11 @@
 package com.lin0721.linmusic.feature.player.ui
 
 import android.content.Intent
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -59,7 +61,7 @@ import com.lin0721.linmusic.core.ui.icons.Group
 import com.lin0721.linmusic.core.ui.icons.Sparkle
 import com.lin0721.linmusic.core.ui.icons.Tune
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun SongMoreOptionsSheet(
     title: String,
@@ -72,8 +74,10 @@ fun SongMoreOptionsSheet(
     // 本地歌曲未匹配到云端：没有网易 songId，依赖云端数据的操作全部隐藏
     isLocalOnly: Boolean,
     isExternal: Boolean = false,
-    // 播客节目：专辑、歌手、收藏到歌单、心动模式、相似歌曲、下载、音质、小歌词都不适用，整项隐藏
+    // 播客节目：专辑、歌手、收藏到歌单、心动模式、相似歌曲、播放音质、小歌词不适用，保留下载能力
     isPodcast: Boolean = false,
+    defaultDownloadQuality: String = "lossless",
+    askDownloadQuality: Boolean = false,
     showMiniLyric: Boolean = true,
     onToggleMiniLyric: (Boolean) -> Unit,
     onToggleLike: () -> Unit,
@@ -88,6 +92,7 @@ fun SongMoreOptionsSheet(
     onCollectClick: () -> Unit,
     onShareClick: () -> Unit,
     onDownloadClick: () -> Unit,
+    onDefaultDownloadClick: (() -> Unit)? = null,
     onDismiss: () -> Unit,
     onListenTogetherClick: () -> Unit = {},
     songId: Long? = null,
@@ -329,20 +334,80 @@ fun SongMoreOptionsSheet(
                     )
                 }
 
-                if (!isPodcast) {
-                    // 下载
-                    OptionRow(
-                        icon = MelodiaIcons.Download,
-                        text = "下载",
-                        onClick = {
-                            scope.launch {
-                                sheetState.hide()
-                                onDismiss()
-                                onDownloadClick()
+                // 下载（普通歌曲与播客均支持：未开启“下载前询问音质”时点击直接按默认下载音质入队，长按或点右侧可手动选音质）
+                val directDownload = !askDownloadQuality && onDefaultDownloadClick != null
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .combinedClickable(
+                            onClick = {
+                                scope.launch {
+                                    sheetState.hide()
+                                    onDismiss()
+                                    if (directDownload) onDefaultDownloadClick!!.invoke() else onDownloadClick()
+                                }
+                            },
+                            onLongClick = {
+                                scope.launch {
+                                    sheetState.hide()
+                                    onDismiss()
+                                    onDownloadClick()
+                                }
                             }
-                        }
+                        )
+                        .padding(horizontal = 20.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = MelodiaIcons.Download,
+                        contentDescription = null,
+                        tint = MelodiaColors.TextPrimary.copy(alpha = 0.7f),
+                        modifier = Modifier.size(24.dp)
                     )
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = if (isPodcast) "下载节目" else "下载",
+                            color = MelodiaColors.TextPrimary,
+                            fontSize = 15.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        if (directDownload) {
+                            Text(
+                                text = "默认音质：${getQualityDisplayName(defaultDownloadQuality)}",
+                                color = MelodiaColors.TextSecondary,
+                                fontSize = 11.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                    if (directDownload) {
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .border(1.dp, MelodiaColors.Divider, RoundedCornerShape(6.dp))
+                                .clickable {
+                                    scope.launch {
+                                        sheetState.hide()
+                                        onDismiss()
+                                        onDownloadClick()
+                                    }
+                                }
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = "选音质",
+                                color = MelodiaColors.TextSecondary,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+                }
 
+                if (!isPodcast) {
                     // 7. 音质（带有 VIP Tag）
                     var showQualityDialog by remember { mutableStateOf(false) }
                     Row(
