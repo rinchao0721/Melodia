@@ -21,7 +21,10 @@ data class DownloadRecord(
     // 带旧 id 的文件经模糊规则识别，列表以问号图标提示可能不是同一版本
     val fuzzyMatched: Boolean = false,
     // P2 跨平台歌曲标识；老数据反序列化缺失时回退 songId 推导网易云 TrackId
-    val trackId: TrackId? = null
+    val trackId: TrackId? = null,
+    // 播客节目标记与所属电台 ID
+    val isPodcast: Boolean = false,
+    val radioId: Long = 0L
 ) {
     val effectiveTrackId: TrackId
         get() = trackId ?: TrackId.netease(songId.coerceAtLeast(0L))

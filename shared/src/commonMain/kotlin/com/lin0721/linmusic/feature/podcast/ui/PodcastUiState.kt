@@ -22,7 +22,12 @@ sealed interface RadioDetailUiState {
         // 切换排序后重新拉取节目列表期间
         val isReloadingPrograms: Boolean = false,
         // 按 songId 索引的本地进度，用于节目行的进度条与已听完标记
-        val progress: Map<Long, PodcastProgressEntry> = emptyMap()
+        val progress: Map<Long, PodcastProgressEntry> = emptyMap(),
+        // 范围多选需要跨页拉取未加载节目时的 loading 状态
+        val isLoadingRange: Boolean = false,
+        // 默认下载音质与下载前询问偏好
+        val defaultDownloadQuality: String = "lossless",
+        val askDownloadQuality: Boolean = false
     ) : RadioDetailUiState {
         // 「继续播放」的目标：已加载节目里最近收听且未听完的一期
         val resumeProgram: PodcastProgram?

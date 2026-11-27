@@ -63,6 +63,7 @@ data class TrackSelectionUi(
 data class SelectionAction(
     val label: String,
     val icon: ImageVector,
+    val enabledWhenEmpty: Boolean = false,
     val onClick: () -> Unit
 )
 
@@ -82,7 +83,8 @@ fun SelectionHeader(
     containerColor: Color,
     onToggleAll: () -> Unit,
     onExit: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    unit: String = "首"
 ) {
     Box(
         modifier = modifier
@@ -98,7 +100,7 @@ fun SelectionHeader(
             Icon(MelodiaIcons.Close, contentDescription = "退出多选", tint = MaterialTheme.colorScheme.onSurface)
         }
         Text(
-            text = "已选 $count 首",
+            text = "已选 $count $unit",
             color = MaterialTheme.colorScheme.onSurface,
             fontSize = 17.sp,
             fontWeight = FontWeight.Bold,
@@ -137,12 +139,13 @@ fun SelectionActionBar(
             .border(0.5.dp, MelodiaColors.Divider, shape)
     ) {
         actions.forEach { action ->
+            val actionEnabled = enabled || action.enabledWhenEmpty
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier
                     .weight(1f)
-                    .pressable(style = MelodiaPress.Row, enabled = enabled, role = Role.Button, onClick = action.onClick)
-                    .alpha(if (enabled) 1f else DISABLED_ACTION_ALPHA)
+                    .pressable(style = MelodiaPress.Row, enabled = actionEnabled, role = Role.Button, onClick = action.onClick)
+                    .alpha(if (actionEnabled) 1f else DISABLED_ACTION_ALPHA)
                     .padding(vertical = 10.dp)
             ) {
                 Icon(
@@ -190,7 +193,8 @@ fun BoxScope.TrackSelectionOverlay(
     visibleIds: List<Long>,
     headerColor: Color,
     onToggleSelectAll: (List<Long>) -> Unit,
-    onExit: () -> Unit
+    onExit: () -> Unit,
+    unit: String = "首"
 ) {
     SuppressMiniPlayer(selectionUi.active)
     val count = rememberHeldWhile(selectionUi.active, selectionUi.selectedIds.size)
@@ -211,7 +215,8 @@ fun BoxScope.TrackSelectionOverlay(
             allSelected = allSelected,
             containerColor = headerColor,
             onToggleAll = { onToggleSelectAll(visibleIds) },
-            onExit = onExit
+            onExit = onExit,
+            unit = unit
         )
     }
     AnimatedVisibility(

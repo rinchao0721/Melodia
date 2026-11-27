@@ -52,6 +52,16 @@ class DownloadsViewModel(
     fun play(record: DownloadRecord? = null) {
         val records = downloads.value.orEmpty()
         if (records.isEmpty()) return
+        if (record != null && record.isPodcast) {
+            val podcastRecords = records.filter { it.isPodcast }
+            val startIndex = podcastRecords.indexOfFirst { it.storageKey == record.storageKey }.coerceAtLeast(0)
+            playerManager.playQueue(
+                items = podcastRecords.map { it.toQueueItem() },
+                startIndex = startIndex,
+                playContext = PlaybackController.CONTEXT_PODCAST
+            )
+            return
+        }
         val queue = records.map { it.toQueueItem() }
         val startIndex = record?.let { target -> records.indexOfFirst { it.storageKey == target.storageKey } }
             ?.coerceAtLeast(0) ?: 0
@@ -62,7 +72,8 @@ class DownloadsViewModel(
         songId = songId,
         title = displayName(),
         artist = artistName,
-        coverUrl = ""
+        coverUrl = "",
+        radioId = radioId
     )
 
     companion object {

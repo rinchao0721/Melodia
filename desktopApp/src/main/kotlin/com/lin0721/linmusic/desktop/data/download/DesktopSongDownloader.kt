@@ -92,7 +92,8 @@ class DesktopSongDownloader(
     private val recognizer: DownloadRecognizer? = null,
     // 默认只走官方下载接口，不询问插件下载源
     private val urlResolver: DownloadUrlResolver = DownloadUrlResolver(
-        official = { id, level -> downloadApi.getSongDownloadUrl(SongDownloadUrlRequest(id = id, level = level)) }
+        official = { id, level -> downloadApi.getSongDownloadUrl(SongDownloadUrlRequest(id = id, level = level)) },
+        downgradeFallbackEnabled = { settingsPreferences.downloadFallbackHighestQuality.first() }
     ),
     private val platformPlaybackRouter: PlatformPlaybackRouter? = null
 ) : SongDownloader {

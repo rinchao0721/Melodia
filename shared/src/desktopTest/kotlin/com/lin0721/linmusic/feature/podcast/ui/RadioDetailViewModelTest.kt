@@ -2,6 +2,10 @@ package com.lin0721.linmusic.feature.podcast.ui
 
 import com.lin0721.linmusic.core.auth.UserPreferences
 import com.lin0721.linmusic.core.auth.UserProfile
+import com.lin0721.linmusic.core.download.BatchEnqueueResult
+import com.lin0721.linmusic.core.download.DownloadTrackInfo
+import com.lin0721.linmusic.core.download.SongDownloader
+import com.lin0721.linmusic.core.preferences.SettingsPreferences
 import com.lin0721.linmusic.feature.podcast.data.PodcastProgressPreferences
 import com.lin0721.linmusic.feature.podcast.data.PodcastSeenPreferences
 import com.lin0721.linmusic.feature.podcast.data.RADIO_PROGRAM_PAGE_SIZE
@@ -31,7 +35,30 @@ class RadioDetailViewModelTest {
     private val userPreferences = UserPreferences(InMemoryPreferencesStore())
     private val progress = PodcastProgressPreferences(InMemoryPreferencesStore())
     private val seen = PodcastSeenPreferences(InMemoryPreferencesStore())
+    private val settings = SettingsPreferences(InMemoryPreferencesStore())
     private val toasts = mutableListOf<String>()
+
+    private class FakeSongDownloader : SongDownloader {
+        val singleCalls = mutableListOf<Pair<DownloadTrackInfo, String>>()
+        val batchCalls = mutableListOf<Triple<List<DownloadTrackInfo>, String, String>>()
+
+        override fun enqueueSingle(track: DownloadTrackInfo, level: String): java.util.UUID {
+            singleCalls += track to level
+            return java.util.UUID.randomUUID()
+        }
+
+        override suspend fun enqueueBatch(
+            tracks: List<DownloadTrackInfo>,
+            level: String,
+            batchTag: String,
+            batchLabel: String
+        ): BatchEnqueueResult {
+            batchCalls += Triple(tracks, level, batchTag)
+            return BatchEnqueueResult(enqueuedCount = tracks.size, skippedCount = 0)
+        }
+    }
+
+    private val downloader = FakeSongDownloader()
 
     @Before
     fun setUp() {
@@ -45,7 +72,7 @@ class RadioDetailViewModelTest {
 
     private fun viewModel(): RadioDetailViewModel {
         val vm = RadioDetailViewModel(
-            repository, controller, userPreferences, progress, seen, testResourceProvider
+            repository, controller, userPreferences, progress, seen, testResourceProvider, downloader, settings
         )
         CoroutineScope(UnconfinedTestDispatcher()).launch { vm.toastEvent.collect { toasts += it } }
         return vm
@@ -258,5 +285,59 @@ class RadioDetailViewModelTest {
 
         assertEquals(false, vm.success().detail.subscribed)
         assertEquals(false, vm.success().isSubscribing)
+    }
+
+    @Test
+    fun `区间多选超出已加载页数时自动翻页补齐并选中对应节目`() {
+        val total = PAGE * 2 + 20
+        val target = PAGE * 2 + 15
+        repository.radioDetail = { Result.success(testRadioDetail(7).copy(programCount = total)) }
+        repository.radioPrograms = { _, offset, _ ->
+            val end = minOf(offset + PAGE, total)
+            if (offset >= total) Result.success(emptyList())
+            else Result.success((offset until end).map { testProgram(it.toLong() + 1) })
+        }
+        val vm = viewModel()
+        vm.load(7)
+        assertEquals(PAGE, vm.success().programs.size)
+
+        vm.selectEpisodeRange(startNumber = 1, endNumber = target)
+
+        assertEquals(total, vm.success().programs.size)
+        assertEquals(true, vm.selection.value.active)
+        assertEquals(target, vm.selection.value.count)
+        assertTrue(vm.selection.value.isSelected(10L))
+        assertTrue(vm.selection.value.isSelected(target * 10L))
+    }
+
+    @Test
+    fun `连选到与批量下载及下一首播放使用默认下载音质与播客标记`() {
+        runBlocking { settings.saveDownloadQuality("exhigh") }
+        repository.radioPrograms = { _, _, _ ->
+            Result.success(listOf(testProgram(1), testProgram(2), testProgram(3), testProgram(4)))
+        }
+        val vm = viewModel()
+        vm.load(7)
+
+        vm.downloadProgram(vm.success().programs[0])
+        assertEquals(1, downloader.singleCalls.size)
+        assertEquals("exhigh", downloader.singleCalls.single().second)
+        assertTrue(downloader.singleCalls.single().first.isPodcast)
+        assertEquals(7L, downloader.singleCalls.single().first.radioId)
+
+        vm.enterSelection(10L)
+        vm.selectRangeTo(30L)
+        assertEquals(setOf(10L, 20L, 30L), vm.selection.value.selectedIds)
+
+        vm.playSelectedNext()
+        assertEquals(listOf(10L, 20L, 30L), controller.playNextCalls.single().map { it.songId })
+        assertEquals(false, vm.selection.value.active)
+
+        vm.enterSelection(20L)
+        vm.selectRangeTo(40L)
+        vm.downloadSelected()
+        assertEquals(listOf(20L, 30L, 40L), downloader.batchCalls.single().first.map { it.songId })
+        assertEquals("exhigh", downloader.batchCalls.single().second)
+        assertTrue(downloader.batchCalls.single().first.all { it.isPodcast && it.radioId == 7L })
     }
 }

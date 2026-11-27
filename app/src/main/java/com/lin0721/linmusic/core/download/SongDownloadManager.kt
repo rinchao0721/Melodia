@@ -299,6 +299,8 @@ class SongDownloadManager(
         batchLabel = batchLabel,
         createdAt = System.currentTimeMillis(),
         trackId = track.trackId,
+        isPodcast = track.isPodcast,
+        radioId = track.radioId,
         kugouMeta = track.kugouMeta
     )
 
@@ -312,7 +314,8 @@ class SongDownloadManager(
             SongDownloadWorker.buildInputData(
                 track.songId, track.songName, track.artistName, level,
                 track.albumName, track.coverUrl, track.albumYear, batchTag, batchLabel, track.durationMs,
-                trackId = track.trackId, kugouMeta = track.kugouMeta
+                trackId = track.trackId, kugouMeta = track.kugouMeta,
+                isPodcast = track.isPodcast, radioId = track.radioId
             )
         )
         .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())

@@ -1,5 +1,7 @@
 package com.lin0721.linmusic.feature.podcast.domain
 
+import com.lin0721.linmusic.core.download.DownloadTrackInfo
+import com.lin0721.linmusic.core.download.yearFromEpochMillis
 import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.player.QueueItem
 
@@ -31,6 +33,18 @@ fun resumePositionOf(songId: Long, progress: Map<Long, PodcastProgressEntry>): L
     val entry = progress[songId] ?: return 0L
     return if (entry.isFinished) 0L else entry.positionMs
 }
+
+fun PodcastProgram.toDownloadTrackInfo(): DownloadTrackInfo = DownloadTrackInfo(
+    songId = songId,
+    songName = name,
+    artistName = podcastSubtitle(radioName, djName),
+    albumName = radioName,
+    coverUrl = coverUrl.takeIf { it.isNotBlank() },
+    albumYear = yearFromEpochMillis(createTimeMs),
+    durationMs = durationMs,
+    isPodcast = true,
+    radioId = radioId
+)
 
 // 从指定一期起播，整段节目列表作为队列；起播那期有未听完的进度则续播
 fun PlaybackController.playPodcastPrograms(

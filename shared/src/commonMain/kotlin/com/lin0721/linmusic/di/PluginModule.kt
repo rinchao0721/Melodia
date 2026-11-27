@@ -8,7 +8,9 @@ import com.lin0721.linmusic.core.plugin.PlayerCardSource
 import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.player.PlaybackTrackMeta
 import com.lin0721.linmusic.core.player.PlatformPlaybackRouter
+import com.lin0721.linmusic.core.player.data.PlaybackApi
 import com.lin0721.linmusic.core.player.data.PlaybackRepository
+import com.lin0721.linmusic.core.player.data.SongUrlRequest
 import com.lin0721.linmusic.core.plugin.PluginAudioSourceProvider
 import com.lin0721.linmusic.core.plugin.PluginCommands
 import com.lin0721.linmusic.core.plugin.PluginDownloadSources
@@ -112,6 +114,15 @@ fun pluginModule(directory: Scope.() -> File): Module = module {
                 } else {
                     true
                 }
+            },
+            playerUrlFallback = { id, level ->
+                runCatching {
+                    scope.get<PlaybackApi>().getSongUrl(SongUrlRequest(ids = "[$id]", level = level))
+                        .takeIf { it.isSuccess }?.data?.firstOrNull()
+                }.getOrNull()
+            },
+            downgradeFallbackEnabled = {
+                scope.getOrNull<SettingsPreferences>()?.downloadFallbackHighestQuality?.first() ?: true
             }
         )
     }
