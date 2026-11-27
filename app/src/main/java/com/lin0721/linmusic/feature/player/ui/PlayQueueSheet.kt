@@ -38,8 +38,10 @@ import com.lin0721.linmusic.core.ui.components.MelodiaTextButton
 import com.lin0721.linmusic.core.ui.components.MelodiaButton
 import com.lin0721.linmusic.core.player.PersonalFmMode
 import com.lin0721.linmusic.core.player.PlayMode
+import com.lin0721.linmusic.core.player.PlaySource
 import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.player.QueueItem
+import com.lin0721.linmusic.core.player.resolveQueueSourceDestination
 import com.lin0721.linmusic.core.source.MusicPlatform
 import com.lin0721.linmusic.core.songquality.qualitySongId
 import com.lin0721.linmusic.core.player.formatSleepTimerRemaining
@@ -57,6 +59,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.ChevronRight
 import com.lin0721.linmusic.core.ui.icons.Repeat
 import com.lin0721.linmusic.core.ui.icons.RepeatOne
 import com.lin0721.linmusic.core.ui.icons.Shuffle
@@ -77,6 +80,8 @@ fun PlayQueueSheet(
     currentIndex: Int,
     playMode: PlayMode,
     playContext: String?,
+    playSource: PlaySource? = null,
+    onSourceClick: (() -> Unit)? = null,
     isPlaying: Boolean,
     sleepTimerRemaining: Long,
     onPlayAtIndex: (Int) -> Unit,
@@ -304,9 +309,28 @@ fun PlayQueueSheet(
                 onDismiss = onDismiss
             )
 
+            val currentItem = queue.getOrNull(currentIndex)
+            val sourceDestination = remember(playSource, playContext, currentItem) {
+                resolveQueueSourceDestination(playSource, playContext, currentItem)
+            }
+            val sourceLabel = sourceDestination?.label
+                ?: playContext?.takeIf { it != PlaybackController.CONTEXT_PODCAST }
+
             PlayModeInfoRow(
                 playMode = playMode,
                 playContext = playContext,
+                sourceLabel = sourceLabel,
+                onSourceClick = if (onSourceClick != null && sourceDestination != null) {
+                    {
+                        scope.launch {
+                            sheetState.hide()
+                            onDismiss()
+                            onSourceClick()
+                        }
+                    }
+                } else {
+                    null
+                },
                 personalFmMode = personalFmMode,
                 compact = isShortScreen,
                 onToggleShuffle = onToggleShuffle,
@@ -615,6 +639,8 @@ private fun QueueHeader(
 private fun PlayModeInfoRow(
     playMode: PlayMode,
     playContext: String?,
+    sourceLabel: String? = playContext,
+    onSourceClick: (() -> Unit)? = null,
     personalFmMode: PersonalFmMode = PersonalFmMode.DEFAULT,
     compact: Boolean,
     onToggleShuffle: () -> Unit,
@@ -658,16 +684,39 @@ private fun PlayModeInfoRow(
             Spacer(Modifier.width(6.dp))
             Text(label, color = MelodiaColors.TextPrimary, fontSize = 12.sp)
         }
-        if (!playContext.isNullOrBlank() && !isRoaming && !isIntelligence && !isPersonalFm) {
+        if (!sourceLabel.isNullOrBlank() && !isRoaming && !isIntelligence && !isPersonalFm) {
             Spacer(Modifier.width(12.dp))
-            Text(
-                "来自：$playContext",
-                color = MelodiaColors.TextSecondary,
-                fontSize = 12.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f)
-            )
+            val sourceModifier = if (onSourceClick != null) {
+                Modifier
+                    .weight(1f, fill = false)
+                    .clip(RoundedCornerShape(10.dp))
+                    .clickable(onClick = onSourceClick)
+                    .padding(horizontal = 6.dp, vertical = 4.dp)
+            } else {
+                Modifier.weight(1f)
+            }
+            Row(
+                modifier = sourceModifier,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "来自：$sourceLabel",
+                    color = if (onSourceClick != null) MelodiaColors.TextPrimary else MelodiaColors.TextSecondary,
+                    fontSize = 12.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false)
+                )
+                if (onSourceClick != null) {
+                    Spacer(Modifier.width(2.dp))
+                    Icon(
+                        MelodiaIcons.ChevronRight,
+                        contentDescription = "跳转到来源",
+                        tint = MelodiaColors.TextSecondary,
+                        modifier = Modifier.size(14.dp)
+                    )
+                }
+            }
         }
     }
 }

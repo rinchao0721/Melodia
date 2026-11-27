@@ -259,7 +259,7 @@ private fun BeRepliedComment.toUnified(platform: MusicPlatform): UnifiedRepliedC
 fun PlaySource.toUnified(platform: MusicPlatform = MusicPlatform.NETEASE): UnifiedPlaySource =
     UnifiedPlaySource(
         kind = when (kind) {
-            PlaySource.Kind.PLAYLIST, PlaySource.Kind.RANK -> UnifiedPlaySource.Kind.PLAYLIST
+            PlaySource.Kind.PLAYLIST, PlaySource.Kind.RANK, PlaySource.Kind.RADIO -> UnifiedPlaySource.Kind.PLAYLIST
             PlaySource.Kind.ALBUM -> UnifiedPlaySource.Kind.ALBUM
         },
         platform = platform,

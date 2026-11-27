@@ -1068,7 +1068,7 @@ class HomeViewModel(
             val (kind, entityId) = when (item.kind) {
                 PlaySource.Kind.ALBUM -> HomeCardKind.ALBUM to com.lin0721.linmusic.core.platform.AlbumId.of(MusicPlatform.KUGOU, item.effectiveRawId).canonical
                 PlaySource.Kind.RANK -> HomeCardKind.RANK to item.effectiveRawId
-                PlaySource.Kind.PLAYLIST -> HomeCardKind.PLAYLIST to com.lin0721.linmusic.core.platform.PlaylistId.of(MusicPlatform.KUGOU, item.effectiveRawId).canonical
+                PlaySource.Kind.PLAYLIST, PlaySource.Kind.RADIO -> HomeCardKind.PLAYLIST to com.lin0721.linmusic.core.platform.PlaylistId.of(MusicPlatform.KUGOU, item.effectiveRawId).canonical
             }
             HomeSectionCard(
                 platform = MusicPlatform.KUGOU,

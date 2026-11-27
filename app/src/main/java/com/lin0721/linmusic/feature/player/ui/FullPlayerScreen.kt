@@ -106,6 +106,8 @@ import com.lin0721.linmusic.core.ui.theme.rememberMelodiaOrientationClass
 import com.lin0721.linmusic.core.ui.theme.LocalMelodiaPlayerPanelAtStart
 import com.lin0721.linmusic.core.player.PlaySource
 import com.lin0721.linmusic.core.player.PlaybackController
+import com.lin0721.linmusic.core.player.QueueSourceDestination
+import com.lin0721.linmusic.core.player.resolveQueueSourceDestination
 import com.lin0721.linmusic.core.preferences.FullPlayerCard
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
 import com.lin0721.linmusic.core.ui.theme.uiTween
@@ -137,6 +139,8 @@ fun FullPlayerScreen(
     onKugouArtistClick: (String) -> Unit = {},
     onKugouAlbumClick: (String) -> Unit = {},
     onPlaylistClick: (Long) -> Unit = {},
+    onPlaylistEntityClick: (String, Boolean) -> Unit = { _, _ -> },
+    onRadioClick: (Long) -> Unit = {},
     onNavigateToProfile: (Long) -> Unit = {},
     onNavigateToPrivateChat: (Long) -> Unit = {},
     onDragClose: (Float, Float) -> Unit = { _, _ -> },
@@ -177,6 +181,8 @@ fun FullPlayerScreen(
             onKugouArtistClick = onKugouArtistClick,
             onKugouAlbumClick = onKugouAlbumClick,
             onPlaylistClick = onPlaylistClick,
+            onPlaylistEntityClick = onPlaylistEntityClick,
+            onRadioClick = onRadioClick,
             onNavigateToProfile = onNavigateToProfile,
             onNavigateToPrivateChat = onNavigateToPrivateChat,
             onDragClose = onDragClose,
@@ -215,6 +221,8 @@ private fun FullPlayerScreenContent(
     onKugouArtistClick: (String) -> Unit = {},
     onKugouAlbumClick: (String) -> Unit = {},
     onPlaylistClick: (Long) -> Unit = {},
+    onPlaylistEntityClick: (String, Boolean) -> Unit = { _, _ -> },
+    onRadioClick: (Long) -> Unit = {},
     onNavigateToProfile: (Long) -> Unit = {},
     onNavigateToPrivateChat: (Long) -> Unit = {},
     onDragClose: (Float, Float) -> Unit = { _, _ -> },
@@ -390,10 +398,17 @@ private fun FullPlayerScreenContent(
             ToastManager.showToast("未找到专辑信息")
         }
     }
-    val openPlaylistSource: (() -> Unit)? = if (playSource?.kind == PlaySource.Kind.PLAYLIST && (playSource?.id ?: 0L) > 0L) {
-        { onPlaylistClick(playSource!!.id) }
-    } else {
-        null
+    val queueSourceDestination = remember(playSource, playContext, currentQueueItem) {
+        resolveQueueSourceDestination(playSource, playContext, currentQueueItem)
+    }
+    val openPlaylistSource: (() -> Unit)? = queueSourceDestination?.let { dest ->
+        {
+            when (dest) {
+                is QueueSourceDestination.Playlist -> if (dest.isAlbum) onAlbumClick(dest.id) else onPlaylistClick(dest.id)
+                is QueueSourceDestination.PlaylistEntity -> onPlaylistEntityClick(dest.entityId, dest.isAlbum)
+                is QueueSourceDestination.Radio -> onRadioClick(dest.radioId)
+            }
+        }
     }
     val podcast by viewModel.podcastState.collectAsStateWithLifecycle()
     // 播客节目没有歌词、歌曲评论与歌手专辑信息，信息卡与小歌词整体不展示
@@ -1326,6 +1341,8 @@ private fun FullPlayerScreenContent(
             currentQueueIndex = currentQueueIndex,
             playMode = playMode,
             playContext = playContext,
+            playSource = playSource,
+            onSourceClick = openPlaylistSource,
             isPlaying = isPlaying,
             title = title,
             artist = artist,

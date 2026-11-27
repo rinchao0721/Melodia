@@ -1,5 +1,6 @@
 package com.lin0721.linmusic.feature.podcast.domain
 
+import com.lin0721.linmusic.core.player.PlaySource
 import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.player.QueueItem
 
@@ -40,20 +41,39 @@ fun PlaybackController.playPodcastPrograms(
 ) {
     if (programs.isEmpty()) return
     val start = index.coerceIn(programs.indices)
+    val startProgram = programs[start]
+    val source = startProgram.radioId.takeIf { it > 0L }?.let { rid ->
+        PlaySource(
+            kind = PlaySource.Kind.RADIO,
+            id = rid,
+            name = startProgram.radioName.ifBlank { "播客" },
+            coverUrl = startProgram.coverUrl
+        )
+    }
     playQueue(
         items = programs.map { it.toQueueItem() },
         startIndex = start,
         playContext = PlaybackController.CONTEXT_PODCAST,
-        startPositionMs = resumePositionOf(programs[start].songId, progress)
+        source = source,
+        startPositionMs = resumePositionOf(startProgram.songId, progress)
     )
 }
 
 // 继续收听：单曲队列，从上次进度起播
 fun PlaybackController.resumePodcast(entry: PodcastProgressEntry) {
+    val source = entry.radioId.takeIf { it > 0L }?.let { rid ->
+        PlaySource(
+            kind = PlaySource.Kind.RADIO,
+            id = rid,
+            name = entry.subtitle.substringBefore(" · ").ifBlank { "播客" },
+            coverUrl = entry.coverUrl
+        )
+    }
     playQueue(
         items = listOf(entry.toQueueItem()),
         startIndex = 0,
         playContext = PlaybackController.CONTEXT_PODCAST,
+        source = source,
         startPositionMs = if (entry.isFinished) 0L else entry.positionMs
     )
 }
