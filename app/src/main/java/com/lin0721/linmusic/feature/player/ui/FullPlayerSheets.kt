@@ -8,6 +8,7 @@ import androidx.compose.runtime.setValue
 import com.lin0721.linmusic.feature.listentogether.ui.ListenTogetherPlayerEntry
 import com.lin0721.linmusic.core.player.PersonalFmMode
 import com.lin0721.linmusic.core.player.PlayMode
+import com.lin0721.linmusic.core.player.PlaySource
 import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.player.QueueItem
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectItem
@@ -29,6 +30,8 @@ fun FullPlayerSheets(
     currentQueueIndex: Int,
     playMode: PlayMode,
     playContext: String?,
+    playSource: PlaySource? = null,
+    onSourceClick: (() -> Unit)? = null,
     isPlaying: Boolean,
     title: String,
     artist: String,
@@ -80,6 +83,8 @@ fun FullPlayerSheets(
             currentIndex = currentQueueIndex,
             playMode = playMode,
             playContext = playContext,
+            playSource = playSource,
+            onSourceClick = onSourceClick,
             isPlaying = isPlaying,
             sleepTimerRemaining = sleepTimerRemaining,
             onPlayAtIndex = onPlayAtIndex,

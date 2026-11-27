@@ -32,5 +32,61 @@ data class PlaySource(
             null
         }
 
-    enum class Kind { PLAYLIST, ALBUM, RANK }
+    val radioIdOrNull: Long?
+        get() = if (kind == Kind.RADIO && id > 0L) id else null
+
+    enum class Kind { PLAYLIST, ALBUM, RANK, RADIO }
+}
+
+sealed interface QueueSourceDestination {
+    val label: String
+
+    data class Playlist(val id: Long, val isAlbum: Boolean, override val label: String) : QueueSourceDestination
+    data class PlaylistEntity(val entityId: String, val isAlbum: Boolean, override val label: String) : QueueSourceDestination
+    data class Radio(val radioId: Long, override val label: String) : QueueSourceDestination
+}
+
+// 从队列的 PlaySource 或当前曲目的播客 radioId 解析可点击跳转的来源页
+fun resolveQueueSourceDestination(
+    playSource: PlaySource?,
+    playContext: String?,
+    currentItem: QueueItem?
+): QueueSourceDestination? {
+    if (playSource != null) {
+        val label = playSource.name.ifBlank { playContext.orEmpty() }
+        when (playSource.kind) {
+            PlaySource.Kind.RADIO -> {
+                val rid = playSource.id.takeIf { it > 0L } ?: currentItem?.radioId?.takeIf { it > 0L } ?: 0L
+                if (rid > 0L) return QueueSourceDestination.Radio(rid, label.ifBlank { "播客" })
+            }
+            PlaySource.Kind.ALBUM -> {
+                if (playSource.platform != MusicPlatform.NETEASE) {
+                    playSource.albumIdOrNull?.let {
+                        return QueueSourceDestination.PlaylistEntity(it.canonical, isAlbum = true, label = label.ifBlank { "专辑" })
+                    }
+                } else if (playSource.id > 0L) {
+                    return QueueSourceDestination.Playlist(playSource.id, isAlbum = true, label = label.ifBlank { "专辑" })
+                }
+            }
+            PlaySource.Kind.PLAYLIST, PlaySource.Kind.RANK -> {
+                if (playSource.platform != MusicPlatform.NETEASE) {
+                    if (playSource.kind == PlaySource.Kind.PLAYLIST) {
+                        playSource.playlistIdOrNull?.let {
+                            return QueueSourceDestination.PlaylistEntity(it.canonical, isAlbum = false, label = label.ifBlank { "歌单" })
+                        }
+                    } else if (playSource.effectiveRawId.isNotBlank()) {
+                        return QueueSourceDestination.PlaylistEntity(playSource.effectiveRawId, isAlbum = false, label = label.ifBlank { "排行榜" })
+                    }
+                } else if (playSource.id > 0L) {
+                    return QueueSourceDestination.Playlist(playSource.id, isAlbum = false, label = label.ifBlank { if (playSource.kind == PlaySource.Kind.RANK) "排行榜" else "歌单" })
+                }
+            }
+        }
+    }
+    val fallbackRadioId = currentItem?.radioId?.takeIf { it > 0L }
+    if (fallbackRadioId != null) {
+        val name = currentItem.artist.substringBefore(" · ").ifBlank { "播客" }
+        return QueueSourceDestination.Radio(fallbackRadioId, name)
+    }
+    return null
 }

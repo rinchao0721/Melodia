@@ -1242,6 +1242,14 @@ fun MelodiaApp() {
                             isPanelFullscreen = false
                             navigation.openPlaylist(playlistId, isAlbum = false)
                         },
+                        onPlaylistEntityClick = { entityId, isAlbum ->
+                            isPanelFullscreen = false
+                            navigation.openPlaylistEntity(entityId, isAlbum = isAlbum)
+                        },
+                        onRadioClick = { radioId ->
+                            isPanelFullscreen = false
+                            navigation.openRadio(radioId)
+                        },
                         onNavigateToProfile = { uid ->
                             isPanelFullscreen = false
                             navigation.openProfile(uid)
@@ -1308,6 +1316,18 @@ fun MelodiaApp() {
             onPlaylistClick = { playlistId ->
                 navigation.navigateFromPlayer(currentTrack?.mediaId) {
                     navigation.openPlaylist(playlistId, isAlbum = false)
+                }
+                playerSheet.animateTo(false, 0f)
+            },
+            onPlaylistEntityClick = { entityId, isAlbum ->
+                navigation.navigateFromPlayer(currentTrack?.mediaId) {
+                    navigation.openPlaylistEntity(entityId, isAlbum = isAlbum)
+                }
+                playerSheet.animateTo(false, 0f)
+            },
+            onRadioClick = { radioId ->
+                navigation.navigateFromPlayer(currentTrack?.mediaId) {
+                    navigation.openRadio(radioId)
                 }
                 playerSheet.animateTo(false, 0f)
             },
