@@ -672,6 +672,21 @@ class PlayerManager(
         }
     }
 
+    override fun reverseQueue() {
+        val ctx = playbackQueue.playContext.value
+        if (personalFm.isPersonalFm || ctx == SimilarRoamingController.CONTEXT_ROAMING || ctx == PlaybackController.CONTEXT_INTELLIGENCE) return
+        val wasShuffle = playbackQueue.playMode.value == PlayMode.SHUFFLE
+        if (!playbackQueue.reverseOrder()) return
+        if (wasShuffle) {
+            controllerHolder.setRepeatMode(PlayMode.LIST_LOOP)
+            stateStore.savePlayMode(PlayMode.LIST_LOOP)
+        }
+        prefetchJob?.cancel()
+        prefetchedNextUrl = null
+        prefetchTriggeredForSongId = -1L
+        saveQueueState()
+    }
+
     override fun toggleShuffle() {
         if (personalFm.isPersonalFm) return
         val currentItem = playbackQueue.currentItem()

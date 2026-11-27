@@ -126,6 +126,8 @@ open class RoutingPlaybackController(
 
     override fun moveInQueue(from: Int, to: Int) = activeController.moveInQueue(from, to)
 
+    override fun reverseQueue() = activeController.reverseQueue()
+
     override fun clearQueue() = activeController.clearQueue()
 
     override fun stopAndClearQueue() = activeController.stopAndClearQueue()

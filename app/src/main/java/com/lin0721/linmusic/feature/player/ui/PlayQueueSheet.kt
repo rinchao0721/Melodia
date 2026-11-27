@@ -10,6 +10,7 @@ import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -60,6 +61,7 @@ import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.core.ui.icons.Repeat
 import com.lin0721.linmusic.core.ui.icons.RepeatOne
 import com.lin0721.linmusic.core.ui.icons.Shuffle
+import com.lin0721.linmusic.core.ui.icons.Sort
 import com.lin0721.linmusic.core.ui.icons.Timer
 import com.lin0721.linmusic.core.ui.icons.Close
 import com.lin0721.linmusic.core.ui.icons.Delete
@@ -83,6 +85,7 @@ fun PlayQueueSheet(
     // 按 songId 删，连划时下标会过期；返回 false 则回弹
     onRemoveSong: (Long) -> Boolean,
     onMoveItem: (from: Int, to: Int) -> Unit,
+    onReverseQueue: (() -> Unit)? = null,
     onToggleShuffle: () -> Unit,
     onClearQueue: () -> Unit,
     onDisableRoaming: () -> Unit,
@@ -95,12 +98,14 @@ fun PlayQueueSheet(
 ) {
     val motion = LocalUiMotion.current
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
     val isRoaming = playContext == "similar_roaming"
     val isPersonalFm = playContext == PlaybackController.CONTEXT_PERSONAL_FM
+    var reverseRevision by remember { mutableIntStateOf(0) }
+    // 翻转队列时重建 LazyListState，配合 key(reverseRevision) 彻底清理旧 animateItem 退场残留层
+    val listState = remember(reverseRevision) { LazyListState() }
 
-    LaunchedEffect(currentIndex, isPersonalFm) {
+    LaunchedEffect(currentIndex, isPersonalFm, reverseRevision) {
         if (isRoaming || isPersonalFm) {
             listState.scrollToItem(0)
         } else if (currentIndex in queue.indices) {
@@ -296,10 +301,20 @@ fun PlayQueueSheet(
             } else {
                 queue.size
             }
+            val isIntelligence = playContext == "intelligence"
             QueueHeader(
                 queueSize = displayQueueSize,
+                showReverseButton = !isPersonalFm && !isRoaming && !isIntelligence && displayQueueSize > 1 && onReverseQueue != null,
                 showClearButton = !isPersonalFm && displayQueueSize > 1,
                 compact = isShortScreen,
+                onReverseClick = {
+                    draggedIndex = -1
+                    settlingIndex = -1
+                    dragOffset = 0f
+                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    onReverseQueue?.invoke()
+                    reverseRevision++
+                },
                 onClearClick = { showClearConfirmDialog = true },
                 onDismiss = onDismiss
             )
@@ -326,15 +341,16 @@ fun PlayQueueSheet(
                 modifier = Modifier.padding(horizontal = MelodiaSpacing.md)
             )
 
-            LazyColumn(
-                state = listState,
-                // 拖拽时滚动完全交给自动滚屏协程接管
-                userScrollEnabled = !isDraggingActive,
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth(),
-                contentPadding = PaddingValues(bottom = 8.dp)
-            ) {
+            key(reverseRevision) {
+                LazyColumn(
+                    state = listState,
+                    // 拖拽时滚动完全交给自动滚屏协程接管
+                    userScrollEnabled = !isDraggingActive,
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth(),
+                    contentPadding = PaddingValues(bottom = 8.dp)
+                ) {
                 // 1. "已播放" (仅在非漫游且非私人FM模式下显示)
                 if (!isRoaming && !isPersonalFm && currentIndex > 0) {
                     item(key = "header_played") {
@@ -471,8 +487,14 @@ fun PlayQueueSheet(
                                 }
                             )
                             Box(
-                                // 抬起中的行自己负责位移，交给 animateItem 会和手动 translationY 打架
-                                modifier = if (isDragging || isSettling) Modifier.zIndex(1f) else if (LocalUiMotion.current.enabled) Modifier.animateItem() else Modifier
+                                // 抬起中的行自己负责位移，交给 animateItem 会和手动 translationY 打架；禁用淡入淡出避免退场重影
+                                modifier = if (isDragging || isSettling) {
+                                    Modifier.zIndex(1f)
+                                } else if (LocalUiMotion.current.enabled) {
+                                    Modifier.animateItem(fadeInSpec = null, fadeOutSpec = null)
+                                } else {
+                                    Modifier
+                                }
                             ) {
                                 SwipeToDismissBox(
                                     state = dismissState,
@@ -543,6 +565,7 @@ fun PlayQueueSheet(
                     }
                 }
             }
+            }
 
             BottomActionRow(
                 playMode = playMode,
@@ -567,8 +590,10 @@ fun PlayQueueSheet(
 @Composable
 private fun QueueHeader(
     queueSize: Int,
+    showReverseButton: Boolean = false,
     showClearButton: Boolean = queueSize > 1,
     compact: Boolean,
+    onReverseClick: () -> Unit = {},
     onClearClick: () -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -585,6 +610,30 @@ private fun QueueHeader(
             fontWeight = FontWeight.Bold,
             modifier = Modifier.weight(1f)
         )
+        if (showReverseButton) {
+            Row(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(MelodiaColors.Surface)
+                    .clickable(onClick = onReverseClick)
+                    .padding(horizontal = 10.dp, vertical = 5.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = MelodiaIcons.Sort,
+                    contentDescription = "正/倒序切换",
+                    tint = MelodiaColors.Accent,
+                    modifier = Modifier.size(14.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = "正/倒序",
+                    color = MelodiaColors.TextPrimary,
+                    fontSize = 12.sp
+                )
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+        }
         if (showClearButton) {
             MelodiaIconButton(
                 onClick = onClearClick,
@@ -678,7 +727,10 @@ private fun SectionLabel(text: String) {
         text = text,
         color = MelodiaColors.TextSecondary,
         fontSize = 12.sp,
-        modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp)
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MelodiaColors.Background)
+            .padding(horizontal = 20.dp, vertical = 10.dp)
     )
 }
 

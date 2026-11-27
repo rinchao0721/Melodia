@@ -147,8 +147,8 @@ fun RadioDetailScreen(
                         modifier = Modifier.fillMaxWidth().padding(horizontal = PodcastEdgePadding, vertical = 4.dp),
                         horizontalArrangement = Arrangement.spacedBy(7.dp)
                     ) {
-                        PodcastFilterChip("最新优先", !state.sortAscending) { viewModel.setSortAscending(false) }
-                        PodcastFilterChip("最早优先", state.sortAscending) { viewModel.setSortAscending(true) }
+                        PodcastFilterChip("最新 · 倒序", !state.sortAscending) { viewModel.setSortAscending(false) }
+                        PodcastFilterChip("最早 · 正序", state.sortAscending) { viewModel.setSortAscending(true) }
                     }
                 }
 

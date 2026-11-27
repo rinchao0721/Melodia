@@ -229,6 +229,29 @@ class PlaybackQueue {
         return true
     }
 
+    // 翻转队列顺序（正序 <-> 倒序），保持当前正在播放曲目不变；返回是否发生变化
+    fun reverseOrder(): Boolean {
+        if (originalItems.size <= 1) return false
+        val current = currentItem()
+        val wasShuffle = _playMode.value == PlayMode.SHUFFLE
+        originalItems = originalItems.asReversed()
+        if (wasShuffle) {
+            _playMode.value = PlayMode.LIST_LOOP
+            playItems = originalItems
+            _currentIndex.value = if (current != null) {
+                originalItems.indexOfFirst { it.songId == current.songId }.takeIf { it >= 0 } ?: 0
+            } else {
+                _currentIndex.value
+            }
+        } else {
+            val cur = _currentIndex.value
+            playItems = playItems.asReversed()
+            _currentIndex.value = if (cur in playItems.indices) playItems.size - 1 - cur else cur
+        }
+        _items.value = playItems
+        return true
+    }
+
     // 切换播放模式并按新模式重排实际播放顺序
     fun applyMode(newMode: PlayMode, currentItem: QueueItem?) {
         _playMode.value = newMode
