@@ -1,8 +1,16 @@
 package com.lin0721.linmusic.feature.player.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.material3.FloatingActionButtonDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
+import com.lin0721.linmusic.core.player.PodcastSpeedPolicy
 import com.lin0721.linmusic.core.ui.components.PlayPauseIcon
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -54,8 +62,11 @@ fun PlaybackControls(
     onDisableIntelligence: () -> Unit = {},
     isPersonalFm: Boolean = false,
     onTrashFm: () -> Unit = {},
-    // 播客没有随机与循环，隐藏后用等宽占位保持播放键居中
-    showModeButtons: Boolean = true
+    // 播客没有随机与循环，隐藏后用等宽占位保持播放键居中；左侧槽位在播客模式下放置倍速入口
+    showModeButtons: Boolean = true,
+    isPodcast: Boolean = false,
+    playbackSpeed: Float = PodcastSpeedPolicy.DEFAULT_SPEED,
+    onSpeedClick: (() -> Unit)? = null
 ) {
     Row(
         modifier = Modifier
@@ -90,6 +101,12 @@ fun PlaybackControls(
                     MelodiaColors.TextSecondary
                 },
                 modifier = Modifier.size(28.dp)
+            )
+        } else if (isPodcast && onSpeedClick != null) {
+            PodcastSpeedChipButton(
+                speed = playbackSpeed,
+                onClick = onSpeedClick,
+                modifier = Modifier.offset(x = (-6).dp)
             )
         } else Spacer(Modifier.size(ModeButtonSlot))
 
@@ -295,3 +312,35 @@ fun PlaybackControlRow(
 
 // 与图标按钮同宽的占位
 private val ModeButtonSlot = 40.dp
+
+@Composable
+fun PodcastSpeedChipButton(
+    speed: Float,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val active = PodcastSpeedPolicy.toTenth(speed) != PodcastSpeedPolicy.DEFAULT_TENTH
+    val accent = MaterialTheme.colorScheme.primary
+    Box(
+        modifier = modifier
+            .width(ModeButtonSlot)
+            .clip(CircleShape)
+            .background(if (active) accent.copy(alpha = 0.2f) else MelodiaColors.Overlay.copy(alpha = 0.1f))
+            .border(
+                width = 1.dp,
+                color = if (active) accent else MelodiaColors.Overlay.copy(alpha = 0.16f),
+                shape = CircleShape
+            )
+            .clickable(onClick = onClick)
+            .padding(vertical = 5.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = PodcastSpeedPolicy.format(speed),
+            color = if (active) accent else MelodiaColors.TextPrimary,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1
+        )
+    }
+}

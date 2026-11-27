@@ -5,6 +5,7 @@ import androidx.datastore.preferences.core.MutablePreferences
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -17,6 +18,7 @@ import com.lin0721.linmusic.core.lanlink.LanLinkPlaybackModeStore
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.player.CrossfadePolicy
 import com.lin0721.linmusic.core.player.PersonalFmMode
+import com.lin0721.linmusic.core.player.PodcastSpeedPolicy
 import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricAlign
 import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricBounds
 import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricPalette
@@ -58,6 +60,8 @@ class SettingsPreferences(
         private val KEY_WIFI_QUALITY = stringPreferencesKey("wifi_quality")
         // 移动网络播放音质 KEY，默认 "standard"
         private val KEY_MOBILE_QUALITY = stringPreferencesKey("mobile_quality")
+        // 播客专属记忆倍速，默认 1.0x
+        private val KEY_PODCAST_SPEED = floatPreferencesKey("podcast_speed")
         // 新建歌单是否默认设为隐私模式
         private val KEY_DEFAULT_PLAYLIST_PRIVATE = booleanPreferencesKey("default_playlist_private")
         // 默认搜索源
@@ -272,6 +276,18 @@ class SettingsPreferences(
     suspend fun saveMobileQuality(quality: String) {
         dataStore.edit { prefs ->
             prefs[KEY_MOBILE_QUALITY] = quality
+        }
+    }
+
+    // 播客专属记忆倍速（0.5x ~ 3.0x，步进 0.1）
+    val podcastSpeed: Flow<Float> = dataStore.data.map { prefs ->
+        PodcastSpeedPolicy.normalize(prefs[KEY_PODCAST_SPEED] ?: PodcastSpeedPolicy.DEFAULT_SPEED)
+    }.distinctUntilChanged()
+
+    suspend fun savePodcastSpeed(speed: Float) {
+        val normalized = PodcastSpeedPolicy.normalize(speed)
+        dataStore.edit { prefs ->
+            prefs[KEY_PODCAST_SPEED] = normalized
         }
     }
 

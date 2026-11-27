@@ -10,6 +10,7 @@ import androidx.media3.common.ForwardingSimpleBasePlayer
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.PlaybackException
+import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.common.Timeline
 import androidx.media3.common.util.UnstableApi
@@ -254,6 +255,11 @@ class CrossfadePlayer(
         return super.handleSetRepeatMode(repeatMode)
     }
 
+    override fun handleSetPlaybackParameters(playbackParameters: PlaybackParameters): ListenableFuture<*> {
+        other(active).playbackParameters = playbackParameters
+        return super.handleSetPlaybackParameters(playbackParameters)
+    }
+
     override fun handleRelease(): ListenableFuture<*> {
         exclusiveVolume?.removeVolumeListener(exclusiveVolumeListener)
         handler.removeCallbacksAndMessages(null)
@@ -278,9 +284,10 @@ class CrossfadePlayer(
         val incoming = other(active)
         incoming.stop()
         incoming.volume = 0f
-        // 起播前设好，首帧即正确增益
+        // 起播前设好，首帧即正确增益与倍速
         gainStateFor(incoming)?.setGainImmediate(gain)
         incoming.repeatMode = active.repeatMode
+        incoming.playbackParameters = active.playbackParameters
         incoming.setMediaItems(mediaItems, startIndex, startPositionMs)
         incoming.playWhenReady = true
         incoming.prepare()

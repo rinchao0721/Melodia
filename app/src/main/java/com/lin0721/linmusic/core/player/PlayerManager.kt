@@ -51,6 +51,7 @@ import com.lin0721.linmusic.core.network.OnlineStateProvider
 import com.lin0721.linmusic.core.platform.repository.PlatformDiscoverRouter
 import com.lin0721.linmusic.core.player.data.PlaybackRepository
 import com.lin0721.linmusic.core.player.data.SongPlaybackInfo
+import com.lin0721.linmusic.core.player.PodcastSpeedPolicy
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -69,6 +70,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -158,6 +160,11 @@ class PlayerManager(
     // 接口下发的声明档位，按 mediaId 绑定（本地、离线缓存与换源为 null）
     private var declaredQualityLevel: Pair<String, String?>? = null
     private var previousDeclaredQualityLevel: Pair<String, String?>? = null
+
+    // 当前有效播放倍速（仅播客模式应用记忆倍速，普通音乐固定 1.0x）
+    private val _playbackSpeed = MutableStateFlow(PodcastSpeedPolicy.DEFAULT_SPEED)
+    override val playbackSpeed: StateFlow<Float> = _playbackSpeed.asStateFlow()
+    private var savedPodcastSpeed: Float = PodcastSpeedPolicy.DEFAULT_SPEED
 
     private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
     private var audioDeviceCallback: AudioDeviceCallback? = null
@@ -380,6 +387,19 @@ class PlayerManager(
             }
         }
 
+        // 播客专属记忆倍速：在播客上下文应用记忆值，切回普通音乐恢复 1.0x
+        scope.launch {
+            combine(
+                settingsPreferences.podcastSpeed,
+                playbackQueue.playContext
+            ) { storedSpeed, ctx ->
+                savedPodcastSpeed = storedSpeed
+                if (ctx == PlaybackController.CONTEXT_PODCAST) storedSpeed else PodcastSpeedPolicy.DEFAULT_SPEED
+            }.distinctUntilChanged().collect { effective ->
+                applyEffectivePlaybackSpeed(effective)
+            }
+        }
+
         progress.start(
             isPlaying = { _isPlaying.value },
             onTick = { positionMs ->
@@ -443,7 +463,23 @@ class PlayerManager(
 
             mediaController.repeatMode = if (playbackQueue.playMode.value == PlayMode.SINGLE_LOOP)
                 Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
+            controllerHolder.setPlaybackSpeed(_playbackSpeed.value)
         }
+    }
+
+    override fun setPlaybackSpeed(speed: Float) {
+        val normalized = PodcastSpeedPolicy.normalize(speed)
+        if (playbackQueue.playContext.value == PlaybackController.CONTEXT_PODCAST) {
+            savedPodcastSpeed = normalized
+            scope.launch { settingsPreferences.savePodcastSpeed(normalized) }
+        }
+        applyEffectivePlaybackSpeed(normalized)
+    }
+
+    private fun applyEffectivePlaybackSpeed(speed: Float) {
+        val normalized = PodcastSpeedPolicy.normalize(speed)
+        _playbackSpeed.value = normalized
+        controllerHolder.setPlaybackSpeed(normalized)
     }
 
     // 服务被回收后控制器断开，下发指令前重连拉起新服务

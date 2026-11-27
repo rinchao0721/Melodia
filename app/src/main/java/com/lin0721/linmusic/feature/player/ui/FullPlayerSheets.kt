@@ -37,6 +37,11 @@ fun FullPlayerSheets(
     activeQuality: String,
     showMiniLyric: Boolean = true,
     isPodcast: Boolean = false,
+    playbackSpeed: Float = 1.0f,
+    showSpeedSheet: Boolean = false,
+    onSpeedClick: (() -> Unit)? = null,
+    onSpeedSelected: (Float) -> Unit = {},
+    onSpeedDismiss: () -> Unit = {},
     personalFmMode: PersonalFmMode = PersonalFmMode.DEFAULT,
     showPersonalFmModeSheet: Boolean = false,
     qualityDetail: PlaybackQualityDisplay? = null,
@@ -118,6 +123,8 @@ fun FullPlayerSheets(
             isExternal = songState.isExternal,
             songId = currentSongId,
             isPodcast = isPodcast,
+            playbackSpeed = playbackSpeed,
+            onSpeedClick = onSpeedClick,
             showMiniLyric = showMiniLyric,
             onToggleMiniLyric = onToggleMiniLyric,
             onToggleLike = onToggleLike,
@@ -179,6 +186,14 @@ fun FullPlayerSheets(
         PlaybackQualityDetailSheet(
             display = qualityDetail,
             onDismiss = onQualityDetailDismiss
+        )
+    }
+
+    if (showSpeedSheet) {
+        PodcastSpeedPickerSheet(
+            currentSpeed = playbackSpeed,
+            onSpeedSelected = onSpeedSelected,
+            onDismiss = onSpeedDismiss
         )
     }
 }
