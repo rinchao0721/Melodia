@@ -1351,6 +1351,7 @@ private fun FullPlayerScreenContent(
                 }
             },
             onMoveQueueItem = { from, to -> viewModel.playerManager.moveInQueue(from, to) },
+            onReverseQueue = { viewModel.playerManager.reverseQueue() },
             onToggleShuffle = viewModel.playerManager::toggleShuffle,
             onClearQueue = {
                 viewModel.clearQueue()

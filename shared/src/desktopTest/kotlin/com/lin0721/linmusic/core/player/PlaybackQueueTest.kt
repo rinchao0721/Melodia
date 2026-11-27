@@ -473,4 +473,34 @@ class PlaybackQueueTest {
         assertEquals(listOf(1L, 2L), queue.ids())
         assertEquals(1, queue.currentIndex.value)
     }
+
+    @Test
+    fun `翻转队列顺序保持当前曲目不变并更新下标`() {
+        val queue = queueOf(140, 139, 138, 137, startIndex = 1)
+        assertTrue(queue.reverseOrder())
+        assertEquals(listOf(137L, 138L, 139L, 140L), queue.ids())
+        assertEquals(listOf(137L, 138L, 139L, 140L), queue.original.map { it.songId })
+        assertEquals(2, queue.currentIndex.value)
+        assertEquals(139L, queue.currentItem()?.songId)
+        assertEquals(140L, queue.nextItemByMode()?.songId)
+    }
+
+    @Test
+    fun `随机模式下翻转队列顺序退出随机并定位当前曲目`() {
+        val queue = PlaybackQueue().apply { setPlayMode(PlayMode.SHUFFLE) }
+        queue.replaceAll(listOf(item(1), item(2), item(3)), startIndex = 1)
+        assertTrue(queue.reverseOrder())
+        assertEquals(PlayMode.LIST_LOOP, queue.playMode.value)
+        assertEquals(listOf(3L, 2L, 1L), queue.ids())
+        assertEquals(1, queue.currentIndex.value)
+        assertEquals(2L, queue.currentItem()?.songId)
+    }
+
+    @Test
+    fun `单曲队列翻转顺序不产生变化`() {
+        val queue = queueOf(1, startIndex = 0)
+        assertFalse(queue.reverseOrder())
+        assertEquals(listOf(1L), queue.ids())
+        assertEquals(0, queue.currentIndex.value)
+    }
 }

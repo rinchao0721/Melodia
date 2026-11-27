@@ -100,6 +100,7 @@ interface PlaybackController {
     fun playAtIndex(index: Int)
     fun removeFromQueue(index: Int)
     fun moveInQueue(from: Int, to: Int)
+    fun reverseQueue() {}
     fun clearQueue()
     // 切换或退出账户时停止播放并清空队列与播放上下文
     fun stopAndClearQueue()
